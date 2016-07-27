@@ -1,0 +1,56 @@
+{
+  "name": "solid-permissions",
+  "version": "0.0.1",
+  "engines": {
+    "node": "^6.0"
+  },
+  "description": "Web Access Control based permissions library",
+  "main": "./src/index",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "npm run test",
+    "prepublish": "npm run build",
+    "standard": "standard *.js src/*.js",
+    "tape": "tape test/*.js",
+    "test": "npm run standard && npm run tape"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/solid/solid-permissions"
+  },
+  "keywords": [
+    "acl",
+    "access",
+    "control",
+    "solid",
+    "decentralized",
+    "web",
+    "rdf",
+    "ldp",
+    "linked",
+    "data",
+    "rest"
+  ],
+  "author": "Dmitri Zagidulin <dzagidulin@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/solid/solid-permissions/issues"
+  },
+  "homepage": "https://github.com/solid/solid-permissions",
+  "dependencies": {
+    "shorthash": "0.0.2",
+    "solid-namespace": "0.0.1",
+    "solid-web-client": "0.0.2"
+  },
+  "devDependencies": {
+    "blue-tape": "^0.2.0",
+    "rdflib": "linkeddata/rdflib.js#dz_convert_to_node_require",
+    "standard": "^5.4.1",
+    "tape": "^4.4.0"
+  },
+  "standard": {
+    "globals": []
+  }
+}
