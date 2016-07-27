@@ -68,7 +68,7 @@ function getPermissions (resourceUrl, webClient, rdf) {
         })
     })
     .then(function (aclGraph) {
-      permissions.initFromGraph(rdf, aclGraph)
+      permissions.initFromGraph(aclGraph)
       return permissions
     })
 }
