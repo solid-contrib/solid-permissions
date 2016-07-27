@@ -44,7 +44,6 @@
     "solid-namespace": "0.0.1"
   },
   "devDependencies": {
-    "blue-tape": "^0.2.0",
     "rdflib": "linkeddata/rdflib.js#dz_convert_to_node_require",
     "solid-web-client": "0.0.2",
     "standard": "^5.4.1",
