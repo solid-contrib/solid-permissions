@@ -13,7 +13,7 @@
     "build": "npm run test",
     "prepublish": "npm run build",
     "standard": "standard *.js src/*.js",
-    "tape": "tape test/*.js",
+    "tape": "tape test/unit/*.js",
     "test": "npm run standard && npm run tape"
   },
   "repository": {
@@ -41,12 +41,12 @@
   "homepage": "https://github.com/solid/solid-permissions",
   "dependencies": {
     "shorthash": "0.0.2",
-    "solid-namespace": "0.0.1",
-    "solid-web-client": "0.0.2"
+    "solid-namespace": "0.0.1"
   },
   "devDependencies": {
     "blue-tape": "^0.2.0",
     "rdflib": "linkeddata/rdflib.js#dz_convert_to_node_require",
+    "solid-web-client": "0.0.2",
     "standard": "^5.4.1",
     "tape": "^4.4.0"
   },

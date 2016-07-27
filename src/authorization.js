@@ -6,19 +6,20 @@
  */
 
 var hash = require('shorthash')
-var ns = require('solid-namespace')
+var vocab = require('solid-namespace')
 
 /**
  * Returns a set of convenience constants, for use with `addPermission()` etc.
  * Exported as `Authorization.acl`.
  */
-function initModes (ns) {
+function modes () {
+  var ns = vocab()
   var acl = {
-    'READ': ns.acl('Read').uri,
-    'WRITE': ns.acl('Write').uri,
-    'APPEND': ns.acl('Append').uri,
-    'CONTROL': ns.acl('Control').uri,
-    'EVERYONE': ns.foaf('Agent').uri
+    'READ': ns.acl('Read'),
+    'WRITE': ns.acl('Write'),
+    'APPEND': ns.acl('Append'),
+    'CONTROL': ns.acl('Control'),
+    'EVERYONE': ns.foaf('Agent')
   }
   return acl
 }
@@ -382,15 +383,14 @@ class Authorization {
    * @return {Array<Statement>} List of RDF statements representing this Auth,
    *   or an empty array if this authorization is invalid.
    */
-  rdfStatements () {
+  rdfStatements (rdf) {
     // Make sure the authorization has at least one agent/group and `accessTo`
     if (!this.webId() || !this.resourceUrl) {
       return []  // This Authorization is invalid, return empty array
     }
     var statement
-    var rdf = Authorization.rdf
     var fragment = rdf.namedNode('#' + this.hashFragment())
-    var ns = Authorization.vocab
+    var ns = vocab(rdf)
     var statements = [
       rdf.triple(
         fragment,
@@ -574,14 +574,8 @@ function hashFragmentFor (webId, resourceUrl) {
   var hashKey = webId + '-' + resourceUrl
   return hash.unique(hashKey)
 }
+Authorization.acl = modes()
+Authorization.hashFragmentFor = hashFragmentFor
+Authorization.INHERIT = INHERIT
 
-function init (rdf) {
-  Authorization.rdf = rdf
-  Authorization.vocab = ns(rdf)
-  Authorization.acl = initModes(Authorization.vocab)
-  Authorization.hashFragmentFor = hashFragmentFor
-  Authorization.INHERIT = INHERIT
-  return Authorization
-}
-
-module.exports = init
+module.exports = Authorization

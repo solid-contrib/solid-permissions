@@ -2,7 +2,7 @@
 
 var test = require('tape')
 var rdf = require('rdflib')
-var Authorization = require('../src/authorization')(rdf)
+var Authorization = require('../../src/authorization')
 var acl = Authorization.acl
 
 const resourceUrl = 'https://bob.example.com/docs/file1'
