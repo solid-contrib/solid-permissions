@@ -1,7 +1,7 @@
 'use strict'
 
 var test = require('tape')
-var rdf = require('rdflib')
+// var rdf = require('rdflib')
 var Authorization = require('../../src/authorization')
 var acl = Authorization.acl
 
