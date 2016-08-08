@@ -44,7 +44,7 @@
     "solid-namespace": "0.0.1"
   },
   "devDependencies": {
-    "rdflib": "^0.8.0",
+    "rdflib": "^0.9.0",
     "solid-web-client": "0.0.5",
     "standard": "^5.4.1",
     "tape": "^4.4.0"
