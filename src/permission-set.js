@@ -17,6 +17,7 @@
  */
 
 var Authorization = require('./authorization')
+var acl = Authorization.acl
 var ns = require('solid-namespace')
 
 /**
@@ -149,6 +150,16 @@ function allAuthorizations () {
 }
 PermissionSet.prototype.allAuthorizations = allAuthorizations
 
+function allowsPublic (mode, url) {
+  url = url || this.resourceUrl
+  var publicAuth = this.permissionFor(acl.EVERYONE, url)
+  if (!publicAuth) {
+    return false
+  }
+  return publicAuth.allowsMode(mode)
+}
+PermissionSet.prototype.allowsPublic = allowsPublic
+
 /**
  * Returns an RDF graph representation of this permission set and all its
  * Authorizations. Used by `save()`.
@@ -276,9 +287,17 @@ PermissionSet.prototype.forEach = forEach
 
 /**
  * Creates and loads all the authorizations from a given RDF graph.
- * Used by `solid.getPermissions()`.
+ * Used by `getPermissions()`.
+ * Usage:
+ *
+ *   ```
+ *   var acls = new PermissionSet(resourceUri, aclUri, isContainer, rdf)
+ *   acls.initFromGraph(graph)
+ *   ```
  * @method initFromGraph
  * @param graph {Graph} RDF Graph (parsed from the source ACL)
+ * @param [rdf] {RDF} Optional RDF Library (needs to be either passed in here,
+ *   or in the constructor)
  */
 function initFromGraph (graph, rdf) {
   rdf = rdf || this.rdf

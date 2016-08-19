@@ -227,3 +227,13 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
       t.end()
     })
 })
+
+test.only('PermissionSet allowsPublic() test', function (t) {
+  var ps = new PermissionSet(containerUrl, containerAclUrl,
+    PermissionSet.CONTAINER, rdf)
+  ps.initFromGraph(parsedAclGraph)
+  let otherUrl = 'https://alice.example.com/profile/card'
+  t.ok(ps.allowsPublic(acl.READ, otherUrl))
+  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl))
+  t.end()
+})

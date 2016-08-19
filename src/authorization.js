@@ -200,6 +200,15 @@ class Authorization {
   allOrigins () {
     return Object.keys(this.originsAllowed)
   }
+
+  /**
+   * Tests whether this authorization grant the specified access mode
+   * @param accessMode {String}
+   * @return {Boolean}
+   */
+  allowsMode (accessMode) {
+    return this.accessModes[accessMode]
+  }
   /**
    * Does this authorization grant access to requests coming from given origin?
    * @method allowsOrigin

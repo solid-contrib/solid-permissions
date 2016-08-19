@@ -75,3 +75,4 @@ function getPermissions (resourceUrl, webClient, rdf) {
 
 module.exports.clearPermissions = clearPermissions
 module.exports.getPermissions = getPermissions
+module.exports.PermissionSet = PermissionSet
