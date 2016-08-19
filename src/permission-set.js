@@ -303,8 +303,8 @@ function initFromGraph (graph, rdf) {
     // Extract allowed origins
     origins = graph.match(fragment, vocab.acl('origin'))
     // Check if these permissions are to be inherited
-    inherit = graph.any(fragment, vocab.acl('defaultForNew')) ||
-      graph.any(fragment, vocab.acl('default'))
+    inherit = graph.match(fragment, vocab.acl('defaultForNew')).length ||
+      graph.match(fragment, vocab.acl('default')).length
     // Create an Authorization object for each agent or group
     //   (and for each resourceUrl (acl:accessTo))
     agentMatches.forEach(function (agentMatch) {

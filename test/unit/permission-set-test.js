@@ -43,7 +43,7 @@ test('a new PermissionSet() for a resource', function (t) {
   t.end()
 })
 
-test('PermissionSet can add and remove authorizations', function (t) {
+test('PermissionSet can add and remove agent authorizations', function (t) {
   let ps = new PermissionSet(resourceUrl, aclUrl)
   t.equal(ps.aclUrl, aclUrl)
   let origin = 'https://example.com/'
