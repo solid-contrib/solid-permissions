@@ -283,7 +283,7 @@ PermissionSet.prototype.forEach = forEach
 function initFromGraph (graph, rdf) {
   rdf = rdf || this.rdf
   var vocab = ns(rdf)
-  var matches = graph.statementsMatching(null, null, vocab.acl('Authorization'))
+  var matches = graph.match(null, null, vocab.acl('Authorization'))
   var fragment, agentMatches, mailTos, groupMatches, resourceUrls, auth
   var accessModes, origins, inherit
   var self = this
@@ -291,17 +291,17 @@ function initFromGraph (graph, rdf) {
   matches.forEach(function (match) {
     fragment = match.subject
     // Extract all the authorized agents/groups (acl:agent and acl:agentClass)
-    agentMatches = graph.statementsMatching(fragment, vocab.acl('agent'))
+    agentMatches = graph.match(fragment, vocab.acl('agent'))
     mailTos = agentMatches.filter(isMailTo)
     // Now filter out mailtos
     agentMatches = agentMatches.filter(function (ea) { return !isMailTo(ea) })
-    groupMatches = graph.statementsMatching(fragment, vocab.acl('agentClass'))
+    groupMatches = graph.match(fragment, vocab.acl('agentClass'))
     // Extract the acl:accessTo statements. (Have to support multiple ones)
-    resourceUrls = graph.statementsMatching(fragment, vocab.acl('accessTo'))
+    resourceUrls = graph.match(fragment, vocab.acl('accessTo'))
     // Extract the access modes
-    accessModes = graph.statementsMatching(fragment, vocab.acl('mode'))
+    accessModes = graph.match(fragment, vocab.acl('mode'))
     // Extract allowed origins
-    origins = graph.statementsMatching(fragment, vocab.acl('origin'))
+    origins = graph.match(fragment, vocab.acl('origin'))
     // Check if these permissions are to be inherited
     inherit = graph.any(fragment, vocab.acl('defaultForNew')) ||
       graph.any(fragment, vocab.acl('default'))
