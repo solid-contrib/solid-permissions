@@ -130,7 +130,7 @@ test('a PermissionSet() for a resource (not container)', function (t) {
 
 test('a PermissionSet can be initialized from an .acl resource', function (t) {
   let ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
+    PermissionSet.CONTAINER, {rdf: rdf})
   ps.initFromGraph(parsedAclGraph)
   // Check to make sure Alice's authorizations were read in correctly
   let auth = ps.permissionFor(aliceWebId)
@@ -206,7 +206,7 @@ test('PermissionSet equals test 4', function (t) {
 
 test('PermissionSet serialized & deserialized round trip test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
+    PermissionSet.CONTAINER, {rdf: rdf})
   ps.initFromGraph(parsedAclGraph)
   let auth = ps.permissionFor(aliceWebId)
   // console.log(ps.serialize())
@@ -219,7 +219,7 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
       let parsedGraph = parseGraph(rdf, containerAclUrl, serializedTurtle,
         'text/turtle')
       let ps2 = new PermissionSet(containerUrl, containerAclUrl,
-        PermissionSet.CONTAINER, rdf)
+        PermissionSet.CONTAINER, {rdf: rdf})
       ps2.initFromGraph(parsedGraph)
       // console.log(ps2.serialize())
       t.ok(ps.equals(ps2),
@@ -228,12 +228,14 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
     })
 })
 
-test.only('PermissionSet allowsPublic() test', function (t) {
+test('PermissionSet allowsPublic() test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
+    PermissionSet.CONTAINER, {rdf: rdf})
   ps.initFromGraph(parsedAclGraph)
   let otherUrl = 'https://alice.example.com/profile/card'
-  t.ok(ps.allowsPublic(acl.READ, otherUrl))
-  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl))
+  t.ok(ps.allowsPublic(acl.READ, otherUrl),
+    'Alice should have read access to a public read document')
+  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl),
+    'Alice should not have write access to a public read-only document')
   t.end()
 })

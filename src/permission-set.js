@@ -27,7 +27,21 @@ var ns = require('solid-namespace')
 var RESOURCE = 'resource'
 var CONTAINER = 'container'
 
-function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
+/**
+ * @class PermissionSet
+ * @param resourceUrl
+ * @param aclUrl
+ * @param isContainer
+ * @param [options={}] {Object} Options hashmap
+ * @param [options.rdf] {RDF} RDF Library
+ * @param [options.strictOrigin] {Boolean} Enforce strict origin?
+ * @param [options.origin] {String} Origin URI to enforce, relevant
+ *   if strictOrigin is set to true
+ * @param [options.webClient] {SolidWebClient}
+ * @constructor
+ */
+function PermissionSet (resourceUrl, aclUrl, isContainer, options) {
+  options = options || {}
   /**
    * Hashmap of all Authorizations in this permission set, keyed by a hashed
    * combination of an agent's/group's webId and the resourceUrl.
@@ -47,7 +61,7 @@ function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
    * @property rdf
    * @type {RDF}
    */
-  this.rdf = rdf
+  this.rdf = options.rdf
   /**
    * Whether this permission set is for a 'container' or a 'resource'.
    * Determines whether or not the inherit/'acl:default' attribute is set on
@@ -63,10 +77,24 @@ function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
    */
   this.resourceUrl = resourceUrl
   /**
+   * Should this permission set enforce "strict origin" policy?
+   * (If true, uses `options.origin` parameter)
+   * @property strictOrigin
+   * @type {Boolean}
+   */
+  this.strictOrigin = options.strictOrigin
+  /**
+   * Contents of the request's `Origin:` header.
+   * (used only if `strictOrigin` parameter is set to true)
+   * @property origin
+   * @type {String}
+   */
+  this.origin = options.origin
+  /**
    * Solid REST client (optionally injected), used by save() and clear().
    * @type {SolidWebClient}
    */
-  this.webClient = webClient
+  this.webClient = options.webClient
 }
 
 /**
