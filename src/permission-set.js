@@ -33,6 +33,7 @@ var CONTAINER = 'container'
  * @param aclUrl
  * @param isContainer
  * @param [options={}] {Object} Options hashmap
+ * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
  * @param [options.rdf] {RDF} RDF Library
  * @param [options.strictOrigin] {Boolean} Enforce strict origin?
  * @param [options.origin] {String} Origin URI to enforce, relevant
@@ -95,6 +96,10 @@ function PermissionSet (resourceUrl, aclUrl, isContainer, options) {
    * @type {SolidWebClient}
    */
   this.webClient = options.webClient
+  // Optionally initialize from a given parsed graph
+  if (options.graph) {
+    this.initFromGraph(options.graph)
+  }
 }
 
 /**
