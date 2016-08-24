@@ -39,6 +39,13 @@ test('a new Authorization for a container', function (t) {
   t.end()
 })
 
+test('Authorization allowsMode() test', function (t) {
+  let auth = new Authorization()
+  auth.addMode(acl.WRITE)
+  t.ok(auth.allowsMode(acl.WRITE), 'auth.allowsMode() should work')
+  t.end()
+})
+
 test('an Authorization allows editing permission modes', function (t) {
   let auth = new Authorization()
   auth.addMode(acl.CONTROL)

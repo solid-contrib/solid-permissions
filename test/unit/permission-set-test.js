@@ -130,8 +130,7 @@ test('a PermissionSet() for a resource (not container)', function (t) {
 
 test('a PermissionSet can be initialized from an .acl resource', function (t) {
   let ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
-  ps.initFromGraph(parsedAclGraph)
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
   // Check to make sure Alice's authorizations were read in correctly
   let auth = ps.permissionFor(aliceWebId)
   t.ok(auth, 'Container acl should have an authorization for Alice')
@@ -206,8 +205,7 @@ test('PermissionSet equals test 4', function (t) {
 
 test('PermissionSet serialized & deserialized round trip test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
-  ps.initFromGraph(parsedAclGraph)
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
   let auth = ps.permissionFor(aliceWebId)
   // console.log(ps.serialize())
   t.ok(ps.equals(ps), 'A PermissionSet should equal itself')
@@ -219,8 +217,7 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
       let parsedGraph = parseGraph(rdf, containerAclUrl, serializedTurtle,
         'text/turtle')
       let ps2 = new PermissionSet(containerUrl, containerAclUrl,
-        PermissionSet.CONTAINER, rdf)
-      ps2.initFromGraph(parsedGraph)
+        PermissionSet.CONTAINER, { graph: parsedGraph, rdf: rdf })
       // console.log(ps2.serialize())
       t.ok(ps.equals(ps2),
         'A PermissionSet serialized and re-parsed should equal the original one')
@@ -228,12 +225,37 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
     })
 })
 
-test.only('PermissionSet allowsPublic() test', function (t) {
+test('PermissionSet allowsPublic() test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, rdf)
-  ps.initFromGraph(parsedAclGraph)
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
   let otherUrl = 'https://alice.example.com/profile/card'
-  t.ok(ps.allowsPublic(acl.READ, otherUrl))
-  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl))
+  t.ok(ps.allowsPublic(acl.READ, otherUrl),
+    'Alice should have read access to a public read document')
+  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl),
+    'Alice should not have write access to a public read-only document')
+  t.end()
+})
+
+test('PermissionSet allows() test', function (t) {
+  var ps = new PermissionSet(containerUrl, containerAclUrl,
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
+  let otherUrl = 'https://alice.example.com/profile/card'
+  t.ok(ps.allowsPublic(acl.READ, otherUrl),
+    'Alice should have read access to a public read document')
+  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl),
+    'Alice should not have write access to a public read-only document')
+  t.end()
+})
+
+test('PermissionSet init from untyped ACL test', function (t) {
+  let rawAclSource = require('../resources/untyped-acl-ttl')
+  let resourceUrl = 'https://alice.example.com/docs/file1'
+  let aclUrl = 'https://alice.example.com/docs/file1.acl'
+  let parsedAclGraph = parseGraph(rdf, aclUrl, rawAclSource, 'text/turtle')
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
+    { graph: parsedAclGraph, rdf: rdf })
+  t.ok(ps.count(),
+    'Permission set should init correctly without acl:Authorization type')
   t.end()
 })

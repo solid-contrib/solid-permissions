@@ -27,7 +27,22 @@ var ns = require('solid-namespace')
 var RESOURCE = 'resource'
 var CONTAINER = 'container'
 
-function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
+/**
+ * @class PermissionSet
+ * @param resourceUrl
+ * @param aclUrl
+ * @param isContainer
+ * @param [options={}] {Object} Options hashmap
+ * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
+ * @param [options.rdf] {RDF} RDF Library
+ * @param [options.strictOrigin] {Boolean} Enforce strict origin?
+ * @param [options.origin] {String} Origin URI to enforce, relevant
+ *   if strictOrigin is set to true
+ * @param [options.webClient] {SolidWebClient}
+ * @constructor
+ */
+function PermissionSet (resourceUrl, aclUrl, isContainer, options) {
+  options = options || {}
   /**
    * Hashmap of all Authorizations in this permission set, keyed by a hashed
    * combination of an agent's/group's webId and the resourceUrl.
@@ -47,7 +62,7 @@ function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
    * @property rdf
    * @type {RDF}
    */
-  this.rdf = rdf
+  this.rdf = options.rdf
   /**
    * Whether this permission set is for a 'container' or a 'resource'.
    * Determines whether or not the inherit/'acl:default' attribute is set on
@@ -63,10 +78,28 @@ function PermissionSet (resourceUrl, aclUrl, isContainer, rdf, webClient) {
    */
   this.resourceUrl = resourceUrl
   /**
+   * Should this permission set enforce "strict origin" policy?
+   * (If true, uses `options.origin` parameter)
+   * @property strictOrigin
+   * @type {Boolean}
+   */
+  this.strictOrigin = options.strictOrigin
+  /**
+   * Contents of the request's `Origin:` header.
+   * (used only if `strictOrigin` parameter is set to true)
+   * @property origin
+   * @type {String}
+   */
+  this.origin = options.origin
+  /**
    * Solid REST client (optionally injected), used by save() and clear().
    * @type {SolidWebClient}
    */
-  this.webClient = webClient
+  this.webClient = options.webClient
+  // Optionally initialize from a given parsed graph
+  if (options.graph) {
+    this.initFromGraph(options.graph)
+  }
 }
 
 /**
@@ -302,13 +335,23 @@ PermissionSet.prototype.forEach = forEach
 function initFromGraph (graph, rdf) {
   rdf = rdf || this.rdf
   var vocab = ns(rdf)
-  var matches = graph.match(null, null, vocab.acl('Authorization'))
-  var fragment, agentMatches, mailTos, groupMatches, resourceUrls, auth
+  var authSections = graph.match(null, null, vocab.acl('Authorization'))
+  var agentMatches, mailTos, groupMatches, resourceUrls, auth
   var accessModes, origins, inherit
   var self = this
+  if (authSections.length) {
+    authSections = authSections.map(function (st) { return st.subject })
+  } else {
+    // Attempt to deal with an ACL with no acl:Authorization types present.
+    var subjects = {}
+    authSections = graph.match(null, vocab.acl('mode'))
+    authSections.forEach(function (match) {
+      subjects[match.subject.value] = true
+    })
+    authSections = Object.keys(subjects)
+  }
   // Iterate through each grouping of authorizations in the .acl graph
-  matches.forEach(function (match) {
-    fragment = match.subject
+  authSections.forEach(function (fragment) {
     // Extract all the authorized agents/groups (acl:agent and acl:agentClass)
     agentMatches = graph.match(fragment, vocab.acl('agent'))
     mailTos = agentMatches.filter(isMailTo)

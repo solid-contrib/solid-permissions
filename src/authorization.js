@@ -207,6 +207,8 @@ class Authorization {
    * @return {Boolean}
    */
   allowsMode (accessMode) {
+    // Normalize the access mode
+    accessMode = Authorization.acl[accessMode.toUpperCase()] || accessMode
     return this.accessModes[accessMode]
   }
   /**
