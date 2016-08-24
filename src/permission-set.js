@@ -335,13 +335,23 @@ PermissionSet.prototype.forEach = forEach
 function initFromGraph (graph, rdf) {
   rdf = rdf || this.rdf
   var vocab = ns(rdf)
-  var matches = graph.match(null, null, vocab.acl('Authorization'))
-  var fragment, agentMatches, mailTos, groupMatches, resourceUrls, auth
+  var authSections = graph.match(null, null, vocab.acl('Authorization'))
+  var agentMatches, mailTos, groupMatches, resourceUrls, auth
   var accessModes, origins, inherit
   var self = this
+  if (authSections.length) {
+    authSections = authSections.map(function (st) { return st.subject })
+  } else {
+    // Attempt to deal with an ACL with no acl:Authorization types present.
+    var subjects = {}
+    authSections = graph.match(null, vocab.acl('mode'))
+    authSections.forEach(function (match) {
+      subjects[match.subject.value] = true
+    })
+    authSections = Object.keys(subjects)
+  }
   // Iterate through each grouping of authorizations in the .acl graph
-  matches.forEach(function (match) {
-    fragment = match.subject
+  authSections.forEach(function (fragment) {
     // Extract all the authorized agents/groups (acl:agent and acl:agentClass)
     agentMatches = graph.match(fragment, vocab.acl('agent'))
     mailTos = agentMatches.filter(isMailTo)

@@ -246,3 +246,16 @@ test('PermissionSet allows() test', function (t) {
     'Alice should not have write access to a public read-only document')
   t.end()
 })
+
+test('PermissionSet init from untyped ACL test', function (t) {
+  let rawAclSource = require('../resources/untyped-acl-ttl')
+  let resourceUrl = 'https://alice.example.com/docs/file1'
+  let aclUrl = 'https://alice.example.com/docs/file1.acl'
+  let parsedAclGraph = parseGraph(rdf, aclUrl, rawAclSource, 'text/turtle')
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
+    { graph: parsedAclGraph, rdf: rdf })
+  t.ok(ps.count(),
+    'Permission set should init correctly without acl:Authorization type')
+  t.end()
+})
