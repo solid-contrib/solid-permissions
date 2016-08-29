@@ -230,20 +230,9 @@ test('PermissionSet allowsPublic() test', function (t) {
     PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
   let otherUrl = 'https://alice.example.com/profile/card'
   t.ok(ps.allowsPublic(acl.READ, otherUrl),
-    'Alice should have read access to a public read document')
+    'Alice\'s profile should be public-readable')
   t.notOk(ps.allowsPublic(acl.WRITE, otherUrl),
-    'Alice should not have write access to a public read-only document')
-  t.end()
-})
-
-test('PermissionSet allows() test', function (t) {
-  var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
-  let otherUrl = 'https://alice.example.com/profile/card'
-  t.ok(ps.allowsPublic(acl.READ, otherUrl),
-    'Alice should have read access to a public read document')
-  t.notOk(ps.allowsPublic(acl.WRITE, otherUrl),
-    'Alice should not have write access to a public read-only document')
+    'Alice\'s profile should not be public-writable')
   t.end()
 })
 
