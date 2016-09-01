@@ -36,9 +36,10 @@ var CONTAINER = 'container'
  * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
  * @param [options.rdf] {RDF} RDF Library
  * @param [options.strictOrigin] {Boolean} Enforce strict origin?
+ * @param [options.host] {String} Actual request uri
  * @param [options.origin] {String} Origin URI to enforce, relevant
  *   if strictOrigin is set to true
- * @param [options.webClient] {SolidWebClient}
+ * @param [options.webClient] {SolidWebClient} Used for save() and clear()
  * @constructor
  */
 function PermissionSet (resourceUrl, aclUrl, isContainer, options) {
@@ -258,6 +259,17 @@ function count () {
   return Object.keys(this.authorizations).length
 }
 PermissionSet.prototype.count = count
+
+/**
+ * Tests whether the permission set should enforce a strict origin for the
+ * request.
+ * @method enforceOrigin
+ * @return {Boolean}
+ */
+function enforceOrigin () {
+  return this.strictOrigin && this.origin
+}
+PermissionSet.prototype.enforceOrigin = enforceOrigin
 
 /**
  * Returns whether or not this permission set is equal to another one.
