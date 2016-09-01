@@ -6,8 +6,8 @@ const Authorization = require('../../src/authorization')
 const acl = Authorization.acl
 const PermissionSet = require('../../src/permission-set')
 
-const resourceUrl = 'https://bob.example.com/docs/file1'
-const aclUrl = 'https://bob.example.com/docs/file1.acl'
+const resourceUrl = 'https://alice.example.com/docs/file1'
+const aclUrl = 'https://alice.example.com/docs/file1.acl'
 const containerUrl = 'https://alice.example.com/docs/'
 const containerAclUrl = 'https://alice.example.com/docs/.acl'
 const bobWebId = 'https://bob.example.com/#me'
@@ -110,7 +110,8 @@ test('iterating over a PermissionSet', function (t) {
 test('a PermissionSet() for a container', function (t) {
   let isContainer = true
   let ps = new PermissionSet(containerUrl, aclUrl, isContainer)
-  t.ok(ps.isAuthInherited())
+  t.ok(ps.isAuthInherited(),
+    'A PermissionSet for a container should be inherited by default')
   ps.addPermission(bobWebId, acl.READ)
   let auth = ps.permissionFor(bobWebId)
   t.ok(auth.isInherited(),
@@ -129,8 +130,9 @@ test('a PermissionSet() for a resource (not container)', function (t) {
 })
 
 test('a PermissionSet can be initialized from an .acl resource', function (t) {
-  let ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl,
+    isContainer, { graph: parsedAclGraph, rdf: rdf })
   // Check to make sure Alice's authorizations were read in correctly
   let auth = ps.permissionFor(aliceWebId)
   t.ok(auth, 'Container acl should have an authorization for Alice')
