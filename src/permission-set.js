@@ -322,11 +322,11 @@ class PermissionSet {
 
   /**
    * Creates and loads all the authorizations from a given RDF graph.
-   * Used by `getPermissions()`.
+   * Used by `getPermissions()` and by the constructor (optionally).
    * Usage:
    *
    *   ```
-   *   var acls = new PermissionSet(resourceUri, aclUri, isContainer, rdf)
+   *   var acls = new PermissionSet(resourceUri, aclUri, isContainer, {rdf: rdf})
    *   acls.initFromGraph(graph)
    *   ```
    * @method initFromGraph
@@ -348,9 +348,11 @@ class PermissionSet {
       var subjects = {}
       authSections = graph.match(null, vocab.acl('mode'))
       authSections.forEach(function (match) {
-        subjects[ match.subject.value ] = true
+        subjects[ match.subject.value ] = match.subject
       })
-      authSections = Object.keys(subjects)
+      authSections = Object.keys(subjects).map(section => {
+        return subjects[section]
+      })
     }
     // Iterate through each grouping of authorizations in the .acl graph
     authSections.forEach(function (fragment) {
