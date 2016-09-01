@@ -84,9 +84,18 @@ test('PermissionSet can add and remove agent authorizations', function (t) {
   t.end()
 })
 
+test('PermissionSet no duplicate authorizations test', function (t) {
+  let ps = new PermissionSet(resourceUrl, aclUrl)
+  // Now add two identical permissions
+  ps.addPermission(aliceWebId, [acl.READ, acl.WRITE])
+  ps.addPermission(aliceWebId, [acl.READ, acl.WRITE])
+  t.equal(ps.count, 1, 'Duplicate authorizations should be eliminated')
+  t.end()
+})
+
 test('PermissionSet can add and remove group authorizations', function (t) {
   let ps = new PermissionSet(resourceUrl)
-  // Let's add an agentClass permission
+  // Let's add an agentGroup permission
   ps.addGroupPermission(groupWebId, [acl.READ, acl.WRITE])
   t.equal(ps.count, 1)
   let auth = ps.permissionFor(groupWebId)
