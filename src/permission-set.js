@@ -249,7 +249,7 @@ class PermissionSet {
    * @method count
    * @return {Number}
    */
-  count () {
+  get count () {
     return Object.keys(this.authorizations).length
   }
 
@@ -411,7 +411,7 @@ class PermissionSet {
    * @return {Boolean}
    */
   isEmpty () {
-    return this.count() === 0
+    return this.count === 0
   }
 
   /**
