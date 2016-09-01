@@ -55,6 +55,15 @@ class Authorization {
      */
     this.accessModes = {}
     /**
+     * Type of authorization, either for a specific resource ('accessTo'),
+     * or to be inherited by all downstream resources ('default')
+     * @property accessType
+     * @type {String} Either 'accessTo' or 'default'
+     */
+    this.accessType = inherited
+      ? Authorization.DEFAULT
+      : Authorization.ACCESS_TO
+    /**
      * URL of an agent's WebID (`acl:agent`). Inside an authorization, mutually
      * exclusive with the `group` property. Set via `setAgent()`.
      * @property agent
@@ -303,7 +312,8 @@ class Authorization {
     if (!this.webId || !this.resourceUrl) {
       throw new Error('Cannot call hashFragment() on an incomplete authorization')
     }
-    var hashFragment = hashFragmentFor(this.webId(), this.resourceUrl)
+    var hashFragment = hashFragmentFor(this.webId(), this.resourceUrl,
+      this.accessType)
     return hashFragment
   }
 
@@ -577,16 +587,22 @@ class Authorization {
  * Used with graph serialization to RDF, and as a key to store authorizations
  * in a PermissionSet. Exported (mainly for use in PermissionSet).
  * @method hashFragmentFor
- * @param webId {String}
- * @param resourceUrl {String}
+ * @param webId {String} Agent or group web id
+ * @param resourceUrl {String} Resource or container URL for this authorization
+ * @param [accessType='accessTo'] {String} Either 'accessTo' or 'default'
  * @return {String}
  */
-function hashFragmentFor (webId, resourceUrl) {
-  var hashKey = webId + '-' + resourceUrl
-  return hash.unique(hashKey)
+function hashFragmentFor (webId, resourceUrl,
+                          authType = Authorization.ACCESS_TO) {
+  var hashKey = webId + '-' + resourceUrl + '-' + authType
+  return hashKey
+  // return hash.unique(hashKey)
 }
 Authorization.acl = modes()
 Authorization.hashFragmentFor = hashFragmentFor
 Authorization.INHERIT = INHERIT
+
+Authorization.ACCESS_TO = 'accessTo'
+Authorization.DEFAULT = 'default'
 
 module.exports = Authorization
