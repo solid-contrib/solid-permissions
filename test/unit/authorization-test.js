@@ -17,6 +17,7 @@ test('a new Authorization()', function (t) {
   t.notOk(auth.isPublic())
   t.notOk(auth.webId())
   t.notOk(auth.resourceUrl)
+  t.equal(auth.accessType, Authorization.ACCESS_TO)
   t.deepEqual(auth.mailTo, [])
   t.deepEqual(auth.allOrigins(), [])
   t.deepEqual(auth.allModes(), [])
@@ -36,6 +37,7 @@ test('a new Authorization for a container', function (t) {
   t.notOk(auth.allowsControl())
   t.ok(auth.isInherited(),
     'Authorizations for containers should be inherited by default')
+  t.equal(auth.accessType, Authorization.DEFAULT)
   t.end()
 })
 
