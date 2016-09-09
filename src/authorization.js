@@ -5,7 +5,7 @@
  * @module authorization
  */
 
-var hash = require('shorthash')
+// var hash = require('shorthash')
 var vocab = require('solid-namespace')
 
 /**
@@ -23,12 +23,6 @@ function modes () {
   }
   return acl
 }
-
-/**
- * Inherited authorization (acl:defaultForNew)
- * @type {Boolean}
- */
-var INHERIT = true
 
 /**
  * Models an individual authorization object, for a single resource and for
@@ -114,7 +108,7 @@ class Authorization {
    */
   addMailTo (agent) {
     if (typeof agent !== 'string') {
-      agent = agent.object.uri
+      agent = agent.object.value
     }
     if (agent.startsWith('mailto:')) {
       agent = agent.split(':')[ 1 ]
@@ -151,7 +145,7 @@ class Authorization {
    */
   addModeSingle (accessMode) {
     if (typeof accessMode !== 'string') {
-      accessMode = accessMode.object.uri
+      accessMode = accessMode.object.value
     }
     this.accessModes[ accessMode ] = true
     return this
@@ -166,15 +160,14 @@ class Authorization {
    * @return {Authorization} Returns self, chainable.
    */
   addOrigin (origin) {
-    var self = this
     if (Array.isArray(origin)) {
       origin.forEach((ea) => {
-        self.addOriginSingle(ea)
+        this.addOriginSingle(ea)
       })
     } else {
-      self.addOriginSingle(origin)
+      this.addOriginSingle(origin)
     }
-    return self
+    return this
   }
 
   /**
@@ -186,7 +179,7 @@ class Authorization {
    */
   addOriginSingle (origin) {
     if (typeof origin !== 'string') {
-      origin = origin.object.uri
+      origin = origin.object.value
     }
     this.originsAllowed[ origin ] = true
     return this
@@ -482,7 +475,7 @@ class Authorization {
    */
   removeModeSingle (accessMode) {
     if (typeof accessMode !== 'string') {
-      accessMode = accessMode.object.uri
+      accessMode = accessMode.object.value
     }
     delete this.accessModes[ accessMode ]
   }
@@ -515,7 +508,7 @@ class Authorization {
    */
   removeOriginSingle (origin) {
     if (typeof origin !== 'string') {
-      origin = origin.object.uri
+      origin = origin.object.value
     }
     delete this.originsAllowed[ origin ]
   }
@@ -530,7 +523,7 @@ class Authorization {
   setAgent (agent) {
     if (typeof agent !== 'string') {
       // This is an RDF statement
-      agent = agent.object.uri
+      agent = agent.object.value
     }
     if (agent === Authorization.acl.EVERYONE) {
       this.setPublic()
@@ -555,7 +548,7 @@ class Authorization {
   setGroup (agentClass) {
     if (typeof agentClass !== 'string') {
       // This is an RDF statement
-      agentClass = agentClass.object.uri
+      agentClass = agentClass.object.value
     }
     if (this.agent) {
       throw new Error('Cannot set group, authorization already has an agent set')
@@ -600,8 +593,10 @@ function hashFragmentFor (webId, resourceUrl,
 }
 Authorization.acl = modes()
 Authorization.hashFragmentFor = hashFragmentFor
-Authorization.INHERIT = INHERIT
 
+// Exported constants, for convenience / readability
+Authorization.INHERIT = true
+Authorization.NOT_INHERIT = !Authorization.INHERIT
 Authorization.ACCESS_TO = 'accessTo'
 Authorization.DEFAULT = 'default'
 
