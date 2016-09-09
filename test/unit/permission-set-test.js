@@ -138,14 +138,15 @@ test('a PermissionSet() for a resource (not container)', function (t) {
   t.end()
 })
 
-test.skip('a PermissionSet can be initialized from an .acl resource', function (t) {
+test('a PermissionSet can be initialized from an .acl graph', function (t) {
   let isContainer = false
-  let ps = new PermissionSet(resourceUrl, aclUrl,
-    isContainer, { graph: parsedAclGraph, rdf: rdf })
+  // see test/resources/acl-container-ttl.js
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
+    { graph: parsedAclGraph, rdf: rdf })
+
   // Check to make sure Alice's authorizations were read in correctly
-  let auth = ps.permissionFor(aliceWebId)
-  t.ok(auth, 'Container acl should have an authorization for Alice')
-  t.equal(auth.resourceUrl, containerUrl)
+  let auth = ps.findAuthByAgent(aliceWebId, resourceUrl)
+  t.ok(auth, 'Alice should have a permission for /docs/file1')
   t.ok(auth.isInherited())
   t.ok(auth.allowsWrite() && auth.allowsWrite() && auth.allowsControl())
   // Check to make sure the acl:origin objects were read in
@@ -156,17 +157,16 @@ test.skip('a PermissionSet can be initialized from an .acl resource', function (
   t.equal(auth.mailTo[0], 'alice@example.com')
   t.equal(auth.mailTo[1], 'bob@example.com')
   // Check to make sure Bob's authorizations were read in correctly
-  let auth2 = ps.permissionFor(bobWebId)
+  let auth2 = ps.findAuthByAgent(bobWebId, resourceUrl)
   t.ok(auth2, 'Container acl should also have an authorization for Bob')
   t.ok(auth2.isInherited())
   t.ok(auth2.allowsWrite() && auth2.allowsWrite() && auth2.allowsControl())
   t.ok(auth2.mailTo.length > 0, 'Bob agent should have a mailto: set')
   t.equal(auth2.mailTo[0], 'alice@example.com')
   t.equal(auth2.mailTo[1], 'bob@example.com')
-  t.equal(ps.count, 3)
-  // Now check that the Public Read authorization was parsed
-  let otherUrl = 'https://alice.example.com/profile/card'
-  let publicAuth = ps.permissionFor(acl.EVERYONE, otherUrl)
+  // // Now check that the Public Read authorization was parsed
+  let publicResource = 'https://alice.example.com/profile/card'
+  let publicAuth = ps.findPublicAuth(publicResource)
   t.ok(publicAuth.isPublic())
   t.notOk(publicAuth.isInherited())
   t.ok(publicAuth.allowsRead())

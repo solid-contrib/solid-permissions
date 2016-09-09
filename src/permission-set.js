@@ -16,22 +16,29 @@
  *     as 'to be inherited', that is will have `acl:default` set.
  */
 
-var Authorization = require('./authorization')
-var acl = Authorization.acl
-var ns = require('solid-namespace')
+const Authorization = require('./authorization')
+const acl = Authorization.acl
+const ns = require('solid-namespace')
 
 /**
  * Resource types, used by PermissionSet objects
  * @type {String}
  */
-var RESOURCE = 'resource'
-var CONTAINER = 'container'
+const RESOURCE = 'resource'
+const CONTAINER = 'container'
+
+/**
+ * Agent type index names (used by findAuthByAgent() etc)
+ */
+const AGENT_INDEX = 'agents'
+const GROUP_INDEX = 'groups'
 
 /**
  * @class PermissionSet
- * @param resourceUrl
- * @param aclUrl
- * @param isContainer
+ * @param resourceUrl {String} URL of the resource to which this PS applies
+ * @param aclUrl {String} URL of the ACL corresponding to the resource
+ * @param isContainer {Boolean} Is the resource a container? (Affects usage of
+ *   inherit semantics / acl:default)
  * @param [options={}] {Object} Options hashmap
  * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
  * @param [options.rdf] {RDF} RDF Library
@@ -59,6 +66,21 @@ class PermissionSet {
      * @type {String}
      */
     this.aclUrl = aclUrl
+    /**
+     * Optional request host (used by checkOrigin())
+     * @property host
+     * @type {String}
+     */
+    this.host = options.host
+    /**
+     * Initialize the agents / groups / resources indexes.
+     * @property index
+     * @type {Object}
+     */
+    this.index = {
+      'agents': {},
+      'groups': {}  // Also includes Public permissions
+    }
     /**
      * RDF Library (optionally injected)
      * @property rdf
@@ -104,6 +126,21 @@ class PermissionSet {
     }
   }
 
+  addAgentIndex (webId, accessType, resourceUrl, authorization) {
+    let agents = this.index.agents
+    if (!agents[webId]) {
+      agents[webId] = {}
+    }
+    if (!agents[webId][accessType]) {
+      agents[webId][accessType] = {}
+    }
+    if (!agents[webId][accessType][resourceUrl]) {
+      agents[webId][accessType][resourceUrl] = authorization
+    } else {
+      agents[webId][accessType][resourceUrl].mergeWith(authorization)
+    }
+  }
+
   /**
    * Adds a given Authorization instance to the permission set.
    * Low-level function, clients should use `addPermission()` instead, in most
@@ -121,7 +158,40 @@ class PermissionSet {
     } else {
       this.authorizations[ hashFragment ] = auth
     }
+    // Create the appropriate indexes
+    this.addAgentIndex(auth.webId(), auth.accessType, auth.resourceUrl, auth)
+    if (auth.isPublic()) {
+      this.addPublicIndex(auth.resourceUrl, auth.accessType, auth)
+    }
     return this
+  }
+
+  addAuthorizationFor (resourceUrl, inherit, agent, accessModes, origins = [],
+                       mailTos = []) {
+    let auth = new Authorization(resourceUrl, inherit)
+    auth.setAgent(agent)
+    auth.addMode(accessModes)
+    auth.addOrigin(origins)
+    mailTos.forEach(mailTo => {
+      auth.addMailTo(mailTo)
+    })
+    this.addAuthorization(auth)
+    return auth
+  }
+
+  addGroupIndex (webId, accessType, resourceUrl, authorization) {
+    let groups = this.index.groups
+    if (!groups[webId]) {
+      groups[webId] = {}
+    }
+    if (!groups[webId][accessType]) {
+      groups[webId][accessType] = {}
+    }
+    if (!groups[webId][accessType][resourceUrl]) {
+      groups[webId][accessType][resourceUrl] = authorization
+    } else {
+      groups[webId][accessType][resourceUrl].mergeWith(authorization)
+    }
   }
 
   /**
@@ -164,6 +234,10 @@ class PermissionSet {
     return this
   }
 
+  addPublicIndex (resourceUrl, accessType, auth) {
+    this.addGroupIndex(acl.EVERYONE, accessType, resourceUrl, auth)
+  }
+
   /**
    * Returns a list of all the Authorizations that belong to this permission set.
    * Mostly for internal use.
@@ -181,13 +255,13 @@ class PermissionSet {
     return authList
   }
 
-  allowsPublic (mode, url) {
-    url = url || this.resourceUrl
-    var publicAuth = this.permissionFor(acl.EVERYONE, url)
+  allowsPublic (mode, resourceUrl) {
+    resourceUrl = resourceUrl || this.resourceUrl
+    let publicAuth = this.findPublicAuth(resourceUrl)
     if (!publicAuth) {
       return false
     }
-    return publicAuth.allowsMode(mode)
+    return this.checkOrigin(publicAuth) && publicAuth.allowsMode(mode)
   }
 
   /**
@@ -204,6 +278,25 @@ class PermissionSet {
       graph.add(auth.rdfStatements(rdf))
     })
     return graph
+  }
+
+  checkAccess (resourceUrl, agentId, accessMode) {
+    let result
+    if (this.allowsPublic(accessMode, resourceUrl)) {
+      result = true
+    } else {
+      let auth = this.findAuthByAgent(agentId, resourceUrl)
+      result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+    }
+    return Promise.resolve(result)
+  }
+
+  checkOrigin (authorization) {
+    if (!this.enforceOrigin()) {
+      return true
+    }
+    return authorization.allowsOrigin(this.origin) ||
+        authorization.allowsOrigin(this.host)
   }
 
   /**
@@ -260,6 +353,7 @@ class PermissionSet {
    * @return {Boolean}
    */
   enforceOrigin () {
+    console.log('enforceOrigin():', this.strictOrigin && this.origin)
     return this.strictOrigin && this.origin
   }
 
@@ -295,6 +389,46 @@ class PermissionSet {
       }
     })
     return sameUrl && sameAclUrl && sameResourceType && sameAuths
+  }
+
+  findAuthByAgent (webId, resourceUrl, indexType = AGENT_INDEX) {
+    let index = this.index[indexType]
+    if (!index[webId]) {
+      // There are no permissions at all for this agent
+      return false
+    }
+    // first check the accessTo type
+    let accessToAuths = index[webId][Authorization.ACCESS_TO]
+    let accessToMatch
+    if (accessToAuths) {
+      accessToMatch = accessToAuths[resourceUrl]
+    }
+    if (accessToMatch) {
+      return accessToMatch
+    }
+    // then check the default/inherited type permissions
+    let defaultAuths = index[webId][Authorization.DEFAULT]
+    let defaultMatch
+    if (defaultAuths) {
+      // First try an exact match (resource matches the acl:default object)
+      defaultMatch = defaultAuths[resourceUrl]
+      if (!defaultMatch) {
+        // Next check to see if resource is in any of the relevant containers
+        let containers = Object.keys(defaultAuths).sort().reverse()
+        // Loop through the container URLs, sorted in reverse alpha
+        for (let containerUrl of containers) {
+          if (resourceUrl.startsWith(containerUrl)) {
+            defaultMatch = defaultAuths[containerUrl]
+            break
+          }
+        }
+      }
+    }
+    return defaultMatch
+  }
+
+  findPublicAuth (resourceUrl) {
+    return this.findAuthByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
   }
 
   /**
@@ -336,18 +470,15 @@ class PermissionSet {
    */
   initFromGraph (graph, rdf) {
     rdf = rdf || this.rdf
-    var vocab = ns(rdf)
-    var authSections = graph.match(null, null, vocab.acl('Authorization'))
-    var agentMatches, mailTos, groupMatches, resourceUrls, auth
-    var accessModes, origins, inherit
-    var self = this
+    let vocab = ns(rdf)
+    let authSections = graph.match(null, null, vocab.acl('Authorization'))
     if (authSections.length) {
-      authSections = authSections.map(function (st) { return st.subject })
+      authSections = authSections.map(match => { return match.subject })
     } else {
       // Attempt to deal with an ACL with no acl:Authorization types present.
-      var subjects = {}
+      let subjects = {}
       authSections = graph.match(null, vocab.acl('mode'))
-      authSections.forEach(function (match) {
+      authSections.forEach(match => {
         subjects[ match.subject.value ] = match.subject
       })
       authSections = Object.keys(subjects).map(section => {
@@ -355,43 +486,44 @@ class PermissionSet {
       })
     }
     // Iterate through each grouping of authorizations in the .acl graph
-    authSections.forEach(function (fragment) {
-      // Extract all the authorized agents/groups (acl:agent and acl:agentClass)
-      agentMatches = graph.match(fragment, vocab.acl('agent'))
-      mailTos = agentMatches.filter(isMailTo)
-      // Now filter out mailtos
-      agentMatches = agentMatches.filter(function (ea) { return !isMailTo(ea) })
-      groupMatches = graph.match(fragment, vocab.acl('agentClass'))
-      // Extract the acl:accessTo statements. (Have to support multiple ones)
-      resourceUrls = graph.match(fragment, vocab.acl('accessTo'))
+    authSections.forEach(fragment => {
       // Extract the access modes
-      accessModes = graph.match(fragment, vocab.acl('mode'))
+      let accessModes = graph.match(fragment, vocab.acl('mode'))
       // Extract allowed origins
-      origins = graph.match(fragment, vocab.acl('origin'))
-      // Check if these permissions are to be inherited
-      inherit = graph.match(fragment, vocab.acl('defaultForNew')).length ||
-        graph.match(fragment, vocab.acl('default')).length
+      let origins = graph.match(fragment, vocab.acl('origin'))
+
+      // Extract all the authorized agents
+      let agentMatches = graph.match(fragment, vocab.acl('agent'))
+      // Mailtos only apply to agents (not groups)
+      let mailTos = agentMatches.filter(isMailTo)
+      // Now filter out mailtos
+      agentMatches = agentMatches.filter(ea => { return !isMailTo(ea) })
+      // Extract all 'Public' matches (agentClass foaf:Agent)
+      let publicMatches = graph.match(fragment, vocab.acl('agentClass'),
+        vocab.foaf('Agent'))
+      // Extract all acl:agentGroup matches
+      let groupMatches = graph.match(fragment, vocab.acl('agentGroup'))
+      // Create an Authorization object for each group (accessTo and default)
+      let allAgents = agentMatches
+        .concat(publicMatches)
+        .concat(groupMatches)
       // Create an Authorization object for each agent or group
-      //   (and for each resourceUrl (acl:accessTo))
-      agentMatches.forEach(function (agentMatch) {
-        resourceUrls.forEach(function (resourceUrl) {
-          auth = new Authorization(resourceUrl.object.uri, inherit)
-          auth.setAgent(agentMatch)
-          auth.addMode(accessModes)
-          auth.addOrigin(origins)
-          mailTos.forEach(function (mailTo) {
-            auth.addMailTo(mailTo)
-          })
-          self.addAuthorization(auth)
+      //   (both individual (acl:accessTo) and inherited (acl:default))
+      allAgents.forEach(agentMatch => {
+        // Extract the acl:accessTo statements.
+        let accessToMatches = graph.match(fragment, vocab.acl('accessTo'))
+        accessToMatches.forEach(resourceMatch => {
+          let resourceUrl = resourceMatch.object.value
+          this.addAuthorizationFor(resourceUrl, Authorization.NOT_INHERIT,
+            agentMatch, accessModes, origins, mailTos)
         })
-      })
-      groupMatches.forEach(function (groupMatch) {
-        resourceUrls.forEach(function (resourceUrl) {
-          auth = new Authorization(resourceUrl.object.uri, inherit)
-          auth.setGroup(groupMatch)
-          auth.addMode(accessModes)
-          auth.addOrigin(origins)
-          self.addAuthorization(auth)
+        // Extract inherited / acl:default statements
+        let inheritedMatches = graph.match(fragment, vocab.acl('default'))
+          .concat(graph.match(fragment, vocab.acl('defaultForNew')))
+        inheritedMatches.forEach(containerMatch => {
+          let containerUrl = containerMatch.object.value
+          this.addAuthorizationFor(containerUrl, Authorization.INHERIT,
+            agentMatch, accessModes, origins, mailTos)
         })
       })
     })
@@ -541,7 +673,7 @@ function isMailTo (agent) {
   if (typeof agent === 'string') {
     return agent.startsWith('mailto:')
   } else {
-    return agent.object.uri.startsWith('mailto:')
+    return agent.object.value.startsWith('mailto:')
   }
 }
 
