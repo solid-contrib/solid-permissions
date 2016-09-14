@@ -600,7 +600,7 @@ class Authorization {
  * @method hashFragmentFor
  * @param webId {String} Agent or group web id
  * @param resourceUrl {String} Resource or container URL for this authorization
- * @param [accessType='accessTo'] {String} Either 'accessTo' or 'default'
+ * @param [authType='accessTo'] {String} Either 'accessTo' or 'default'
  * @return {String}
  */
 function hashFragmentFor (webId, resourceUrl,
