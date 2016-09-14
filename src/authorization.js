@@ -99,6 +99,14 @@ class Authorization {
      * @type {String}
      */
     this.resourceUrl = resourceUrl
+    /**
+     * Should this authorization be serialized? (When writing back to an ACL
+     * resource, for example.) Used for implied (rather than explicit)
+     * authorization, such as ones that are derived from acl:Control statements.
+     * @property virtual
+     * @type {Boolean}
+     */
+    this.virtual = false
   }
 
   /**
@@ -260,6 +268,12 @@ class Authorization {
     return this.accessModes[ Authorization.acl.CONTROL ]
   }
 
+  clone () {
+    let auth = new Authorization()
+    Object.assign(auth, JSON.parse(JSON.stringify(this)))
+    return auth
+  }
+
   /**
    * Compares this authorization with another one.
    * Authorizations are equal iff they:
@@ -402,6 +416,10 @@ class Authorization {
     if (!this.webId() || !this.resourceUrl) {
       return []  // This Authorization is invalid, return empty array
     }
+    // Virtual / implied authorizations are not serialized
+    if (this.virtual) {
+      return []
+    }
     var statement
     var fragment = rdf.namedNode('#' + this.hashFragment())
     var ns = vocab(rdf)
@@ -518,7 +536,7 @@ class Authorization {
    * setter method to enforce mutual exclusivity with `group` property, until
    * ES6 setter methods become available.
    * @method setAgent
-   * @param agent {String|Statement} Agent URL (or `acl:agent` RDF triple).
+   * @param agent {String|Quad} Agent URL (or `acl:agent` RDF triple).
    */
   setAgent (agent) {
     if (typeof agent !== 'string') {
@@ -592,6 +610,11 @@ function hashFragmentFor (webId, resourceUrl,
   // return hash.unique(hashKey)
 }
 Authorization.acl = modes()
+Authorization.ALL_MODES = [
+  Authorization.acl.READ,
+  Authorization.acl.WRITE,
+  Authorization.acl.CONTROL
+]
 Authorization.hashFragmentFor = hashFragmentFor
 
 // Exported constants, for convenience / readability

@@ -6,7 +6,7 @@
  * The working assumptions here are:
  *   - Model the various permissions in an ACL resource as a set of unique
  *     authorizations, with one agent (or one group), and only
- *     one resource (acl:accessTo) per authorization.
+ *     one resource (acl:accessTo or acl:default) per authorization.
  *   - If the source RDF of the ACL resource has multiple agents or multiple
  *     resources in one authorization, separate them into multiple separate
  *     Authorization objects (with one agent/group and one resourceUrl each)
@@ -20,9 +20,9 @@ const Authorization = require('./authorization')
 const acl = Authorization.acl
 const ns = require('solid-namespace')
 
+const DEFAULT_ACL_SUFFIX = '.acl'
 /**
  * Resource types, used by PermissionSet objects
- * @type {String}
  */
 const RESOURCE = 'resource'
 const CONTAINER = 'container'
@@ -47,11 +47,20 @@ const GROUP_INDEX = 'groups'
  * @param [options.origin] {String} Origin URI to enforce, relevant
  *   if strictOrigin is set to true
  * @param [options.webClient] {SolidWebClient} Used for save() and clear()
+ * @param [options.aclSuffix='.acl'] {String}
+ * @param [options.isAcl] {Function}
+ * @param [options.aclUrlFor] {Function}
  * @constructor
  */
 class PermissionSet {
   constructor (resourceUrl, aclUrl, isContainer, options) {
     options = options || {}
+
+    /**
+     * @property aclSuffix
+     * @type {String}
+     */
+    this.aclSuffix = options.aclSuffix || DEFAULT_ACL_SUFFIX
     /**
      * Hashmap of all Authorizations in this permission set, keyed by a hashed
      * combination of an agent's/group's webId and the resourceUrl.
@@ -120,25 +129,47 @@ class PermissionSet {
      * @type {SolidWebClient}
      */
     this.webClient = options.webClient
+
+    // Init the functions for deriving an ACL url for a given resource
+    this.aclUrlFor = options.aclUrlFor
+      ? options.aclUrlFor
+      : PermissionSet.defaultAclUrlFor
+    this.aclUrlFor.bind(this)
+    this.isAcl = options.isAcl ? options.isAcl : PermissionSet.defaultIsAcl
+    this.isAcl.bind(this)
+
     // Optionally initialize from a given parsed graph
     if (options.graph) {
       this.initFromGraph(options.graph)
     }
   }
 
-  addAgentIndex (webId, accessType, resourceUrl, authorization) {
-    let agents = this.index.agents
-    if (!agents[webId]) {
-      agents[webId] = {}
-    }
-    if (!agents[webId][accessType]) {
-      agents[webId][accessType] = {}
-    }
-    if (!agents[webId][accessType][resourceUrl]) {
-      agents[webId][accessType][resourceUrl] = authorization
+  /**
+   * Returns the corresponding ACL uri, for a given resource.
+   * This is the default `aclUrlFor()` method that's used by
+   * PermissionSet instances, unless it's overridden in options.
+   * @method defaultAclUrlFor
+   * @param resourceUri {String}
+   * @return {String} ACL uri
+   */
+  static defaultAclUrlFor (resourceUri) {
+    if (this.isAcl(resourceUri)) {
+      return resourceUri  // .acl resources are their own ACLs
     } else {
-      agents[webId][accessType][resourceUrl].mergeWith(authorization)
+      return resourceUri + this.aclSuffix
     }
+  }
+
+  /**
+   * Tests whether a given uri is for an ACL resource.
+   * This is the default `isAcl()` method that's used by
+   * PermissionSet instances, unless it's overridden in options.
+   * @method defaultIsAcl
+   * @param uri {String}
+   * @returns {Boolean}
+   */
+  static defaultIsAcl (uri) {
+    return uri.endsWith(this.aclSuffix)
   }
 
   /**
@@ -146,6 +177,7 @@ class PermissionSet {
    * Low-level function, clients should use `addPermission()` instead, in most
    * cases.
    * @method addAuthorization
+   * @private
    * @param auth {Authorization}
    * @return {PermissionSet} Returns self (chainable)
    */
@@ -158,14 +190,32 @@ class PermissionSet {
     } else {
       this.authorizations[ hashFragment ] = auth
     }
+    if (!auth.virtual && auth.allowsControl()) {
+      // If acl:Control is involved, ensure implicit rules for the .acl resource
+      this.addControlPermissionsFor(auth)
+    }
     // Create the appropriate indexes
-    this.addAgentIndex(auth.webId(), auth.accessType, auth.resourceUrl, auth)
+    this.addToAgentIndex(auth.webId(), auth.accessType, auth.resourceUrl, auth)
     if (auth.isPublic()) {
-      this.addPublicIndex(auth.resourceUrl, auth.accessType, auth)
+      this.addToPublicIndex(auth.resourceUrl, auth.accessType, auth)
     }
     return this
   }
 
+  /**
+   * Creates an Authorization with the given parameters, and passes it on to
+   * `addAuthorization()` to be added to this PermissionSet.
+   * Essentially a convenience factory method.
+   * @method addAuthorizationFor
+   * @private
+   * @param resourceUrl {String}
+   * @param inherit {Boolean}
+   * @param agent {String|Quad} Agent URL (or `acl:agent` RDF triple).
+   * @param accessModes {String} 'READ'/'WRITE' etc.
+   * @param [origins=[]] {Array<String>} List of origins that are allowed access
+   * @param [mailTos=[]] {Array<String>}
+   * @return {Authorization}
+   */
   addAuthorizationFor (resourceUrl, inherit, agent, accessModes, origins = [],
                        mailTos = []) {
     let auth = new Authorization(resourceUrl, inherit)
@@ -179,23 +229,25 @@ class PermissionSet {
     return auth
   }
 
-  addGroupIndex (webId, accessType, resourceUrl, authorization) {
-    let groups = this.index.groups
-    if (!groups[webId]) {
-      groups[webId] = {}
-    }
-    if (!groups[webId][accessType]) {
-      groups[webId][accessType] = {}
-    }
-    if (!groups[webId][accessType][resourceUrl]) {
-      groups[webId][accessType][resourceUrl] = authorization
-    } else {
-      groups[webId][accessType][resourceUrl].mergeWith(authorization)
-    }
+  /**
+   * Adds a virtual (will not be serialized to RDF) authorization giving
+   * Read/Write/Control access to the corresponding ACL resource if acl:Control
+   * is encountered in the actual source ACL.
+   * @method addControlPermissionsFor
+   * @private
+   * @param auth {Authorization} Authorization containing an acl:Control access
+   *   mode.
+   */
+  addControlPermissionsFor (auth) {
+    let impliedAuth = auth.clone()
+    impliedAuth.resourceUrl = this.aclUrlFor(auth.resourceUrl)
+    impliedAuth.virtual = true
+    impliedAuth.addMode(Authorization.ALL_MODES)
+    this.addAuthorization(impliedAuth)
   }
 
   /**
-   * Adds an agentClass/group permission for the given access mode and agent id.
+   * Adds a group permission for the given access mode and group web id.
    * @method addGroupPermission
    * @param webId {String}
    * @param accessMode {String|Array<String>}
@@ -234,8 +286,68 @@ class PermissionSet {
     return this
   }
 
-  addPublicIndex (resourceUrl, accessType, auth) {
-    this.addGroupIndex(acl.EVERYONE, accessType, resourceUrl, auth)
+  /**
+   * Adds a given authorization to the "lookup by agent id" index.
+   * Enables lookups via `findAuthByAgent()`.
+   * @method addToAgentIndex
+   * @private
+   * @param webId {String} Agent's Web ID
+   * @param accessType {String} Either `accessTo` or `default`
+   * @param resourceUrl {String}
+   * @param authorization {Authorization}
+   */
+  addToAgentIndex (webId, accessType, resourceUrl, authorization) {
+    let agents = this.index.agents
+    if (!agents[webId]) {
+      agents[webId] = {}
+    }
+    if (!agents[webId][accessType]) {
+      agents[webId][accessType] = {}
+    }
+    if (!agents[webId][accessType][resourceUrl]) {
+      agents[webId][accessType][resourceUrl] = authorization
+    } else {
+      agents[webId][accessType][resourceUrl].mergeWith(authorization)
+    }
+  }
+
+  /**
+   * Adds a given authorization to the "lookup by group id" index.
+   * Enables lookups via `findAuthByAgent()`.
+   * @method addToGroupIndex
+   * @private
+   * @param webId {String} Group's Web ID
+   * @param accessType {String} Either `accessTo` or `default`
+   * @param resourceUrl {String}
+   * @param authorization {Authorization}
+   */
+  addToGroupIndex (webId, accessType, resourceUrl, authorization) {
+    let groups = this.index.groups
+    if (!groups[webId]) {
+      groups[webId] = {}
+    }
+    if (!groups[webId][accessType]) {
+      groups[webId][accessType] = {}
+    }
+    if (!groups[webId][accessType][resourceUrl]) {
+      groups[webId][accessType][resourceUrl] = authorization
+    } else {
+      groups[webId][accessType][resourceUrl].mergeWith(authorization)
+    }
+  }
+
+  /**
+   * Adds a given authorization to the "lookup by group id" index.
+   * Alias for `addToGroupIndex()`.
+   * Enables lookups via `findAuthByAgent()`.
+   * @method addToPublicIndex
+   * @private
+   * @param resourceUrl {String}
+   * @param accessType {String} Either `accessTo` or `default`
+   * @param authorization {Authorization}
+   */
+  addToPublicIndex (resourceUrl, accessType, auth) {
+    this.addToGroupIndex(acl.EVERYONE, accessType, resourceUrl, auth)
   }
 
   /**
@@ -255,6 +367,14 @@ class PermissionSet {
     return authList
   }
 
+  /**
+   * Tests whether this PermissionSet gives Public (acl:agentClass foaf:Agent)
+   * access to a given uri.
+   * @method allowsPublic
+   * @param mode {String|NamedNode} Access mode (read/write/control etc)
+   * @param resourceUrl {String}
+   * @return {Boolean}
+   */
   allowsPublic (mode, resourceUrl) {
     resourceUrl = resourceUrl || this.resourceUrl
     let publicAuth = this.findPublicAuth(resourceUrl)
@@ -280,6 +400,19 @@ class PermissionSet {
     return graph
   }
 
+  /**
+   * Tests whether the given agent has the specified access to a resource.
+   * This is one of the main use cases for this solid-permissions library.
+   * Optionally performs strict origin checking (if `strictOrigin` is enabled
+   * in the constructor's options).
+   * Returns a promise; async since checking permissions may involve requesting
+   * multiple ACL resources (group listings, etc).
+   * @method checkAccess
+   * @param resourceUrl {String}
+   * @param agentId {String}
+   * @param accessMode {String} Access mode (read/write/control)
+   * @return {Promise<Boolean>}
+   */
   checkAccess (resourceUrl, agentId, accessMode) {
     let result
     if (this.allowsPublic(accessMode, resourceUrl)) {
@@ -291,6 +424,13 @@ class PermissionSet {
     return Promise.resolve(result)
   }
 
+  /**
+   * Tests whether a given authorization allows operations from the current
+   * request's `Origin` header. (The current request's origin and host are
+   * passed in as options to the PermissionSet's constructor.)
+   * @param authorization {Authorization}
+   * @return {Boolean}
+   */
   checkOrigin (authorization) {
     if (!this.enforceOrigin()) {
       return true
@@ -353,7 +493,6 @@ class PermissionSet {
    * @return {Boolean}
    */
   enforceOrigin () {
-    console.log('enforceOrigin():', this.strictOrigin && this.origin)
     return this.strictOrigin && this.origin
   }
 
@@ -391,6 +530,16 @@ class PermissionSet {
     return sameUrl && sameAclUrl && sameResourceType && sameAuths
   }
 
+  /**
+   * Finds and returns an authorization (stored in the 'find by agent' index)
+   * for a given agent (web id) and resource.
+   * @method findAuthByAgent
+   * @private
+   * @param webId {String}
+   * @param resourceUrl {String}
+   * @param indexType {String} Either 'default' or 'accessTo'
+   * @return {Authorization}
+   */
   findAuthByAgent (webId, resourceUrl, indexType = AGENT_INDEX) {
     let index = this.index[indexType]
     if (!index[webId]) {
@@ -427,6 +576,14 @@ class PermissionSet {
     return defaultMatch
   }
 
+  /**
+   * Finds and returns an authorization (stored in the 'find by group' index)
+   * for the "Everyone" group (acl:agentClass foaf:Agent), for a given resource.
+   * @method findAuthByAgent
+   * @private
+   * @param resourceUrl {String}
+   * @return {Authorization}
+   */
   findPublicAuth (resourceUrl) {
     return this.findAuthByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
   }

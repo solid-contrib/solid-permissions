@@ -264,3 +264,11 @@ test('Comparing Authorizations test 7', function (t) {
   t.ok(auth1.equals(auth2))
   t.end()
 })
+
+test('Authorization.clone() test', function (t) {
+  let auth1 = new Authorization(resourceUrl, Authorization.INHERIT)
+  auth1.addMode([acl.READ, acl.WRITE])
+  let auth2 = auth1.clone()
+  t.ok(auth1.equals(auth2))
+  t.end()
+})
