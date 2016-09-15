@@ -47,7 +47,6 @@ const GROUP_INDEX = 'groups'
  * @param [options.origin] {String} Origin URI to enforce, relevant
  *   if strictOrigin is set to true
  * @param [options.webClient] {SolidWebClient} Used for save() and clear()
- * @param [options.aclSuffix='.acl'] {String}
  * @param [options.isAcl] {Function}
  * @param [options.aclUrlFor] {Function}
  * @constructor
@@ -55,12 +54,6 @@ const GROUP_INDEX = 'groups'
 class PermissionSet {
   constructor (resourceUrl, aclUrl, isContainer, options) {
     options = options || {}
-
-    /**
-     * @property aclSuffix
-     * @type {String}
-     */
-    this.aclSuffix = options.aclSuffix || DEFAULT_ACL_SUFFIX
     /**
      * Hashmap of all Authorizations in this permission set, keyed by a hashed
      * combination of an agent's/group's webId and the resourceUrl.
@@ -131,45 +124,15 @@ class PermissionSet {
     this.webClient = options.webClient
 
     // Init the functions for deriving an ACL url for a given resource
-    this.aclUrlFor = options.aclUrlFor
-      ? options.aclUrlFor
-      : PermissionSet.defaultAclUrlFor
+    this.aclUrlFor = options.aclUrlFor ? options.aclUrlFor : defaultAclUrlFor
     this.aclUrlFor.bind(this)
-    this.isAcl = options.isAcl ? options.isAcl : PermissionSet.defaultIsAcl
+    this.isAcl = options.isAcl ? options.isAcl : defaultIsAcl
     this.isAcl.bind(this)
 
     // Optionally initialize from a given parsed graph
     if (options.graph) {
       this.initFromGraph(options.graph)
     }
-  }
-
-  /**
-   * Returns the corresponding ACL uri, for a given resource.
-   * This is the default `aclUrlFor()` method that's used by
-   * PermissionSet instances, unless it's overridden in options.
-   * @method defaultAclUrlFor
-   * @param resourceUri {String}
-   * @return {String} ACL uri
-   */
-  static defaultAclUrlFor (resourceUri) {
-    if (this.isAcl(resourceUri)) {
-      return resourceUri  // .acl resources are their own ACLs
-    } else {
-      return resourceUri + this.aclSuffix
-    }
-  }
-
-  /**
-   * Tests whether a given uri is for an ACL resource.
-   * This is the default `isAcl()` method that's used by
-   * PermissionSet instances, unless it's overridden in options.
-   * @method defaultIsAcl
-   * @param uri {String}
-   * @returns {Boolean}
-   */
-  static defaultIsAcl (uri) {
-    return uri.endsWith(this.aclSuffix)
   }
 
   /**
@@ -815,6 +778,33 @@ class PermissionSet {
       })
     })
   }
+}
+
+/**
+ * Returns the corresponding ACL uri, for a given resource.
+ * This is the default template for the `aclUrlFor()` method that's used by
+ * PermissionSet instances, unless it's overridden in options.
+ * @param resourceUri {String}
+ * @return {String} ACL uri
+ */
+function defaultAclUrlFor (resourceUri) {
+  if (defaultIsAcl(resourceUri)) {
+    return resourceUri  // .acl resources are their own ACLs
+  } else {
+    return resourceUri + DEFAULT_ACL_SUFFIX
+  }
+}
+
+/**
+ * Tests whether a given uri is for an ACL resource.
+ * This is the default template for the `isAcl()` method that's used by
+ * PermissionSet instances, unless it's overridden in options.
+ * @method defaultIsAcl
+ * @param uri {String}
+ * @return {Boolean}
+ */
+function defaultIsAcl (uri) {
+  return uri.endsWith(DEFAULT_ACL_SUFFIX)
 }
 
 /**
