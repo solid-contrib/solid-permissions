@@ -359,9 +359,8 @@ class PermissionSet {
   allAuthorizations () {
     var authList = []
     var auth
-    var self = this
-    Object.keys(this.authorizations).forEach(function (authKey) {
-      auth = self.authorizations[authKey]
+    Object.keys(this.authorizations).forEach(authKey => {
+      auth = this.authorizations[authKey]
       authList.push(auth)
     })
     return authList
@@ -508,7 +507,6 @@ class PermissionSet {
    * @return {Boolean}
    */
   equals (ps) {
-    var self = this
     var sameUrl = this.resourceUrl === ps.resourceUrl
     var sameAclUrl = this.aclUrl === ps.aclUrl
     var sameResourceType = this.resourceType === ps.resourceType
@@ -517,8 +515,8 @@ class PermissionSet {
     if (myAuthKeys.length !== otherAuthKeys.length) { return false }
     var sameAuths = true
     var myAuth, otherAuth
-    myAuthKeys.forEach(function (authKey) {
-      myAuth = self.authorizations[authKey]
+    myAuthKeys.forEach(authKey => {
+      myAuth = this.authorizations[authKey]
       otherAuth = ps.authorizations[authKey]
       if (!otherAuth) {
         sameAuths = false
@@ -605,9 +603,8 @@ class PermissionSet {
    * @param callback {Function} Function to apply to each authorization
    */
   forEach (callback) {
-    var self = this
-    this.allAuthorizations().forEach(function (auth) {
-      callback.call(self, auth)
+    this.allAuthorizations().forEach(auth => {
+      callback.call(this, auth)
     })
   }
 

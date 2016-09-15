@@ -132,15 +132,14 @@ class Authorization {
    * @return {Authorization} Returns self, chainable.
    */
   addMode (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
-      accessMode.forEach((ea) => {
-        self.addModeSingle(ea)
+      accessMode.forEach(ea => {
+        this.addModeSingle(ea)
       })
     } else {
-      self.addModeSingle(accessMode)
+      this.addModeSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
@@ -476,15 +475,14 @@ class Authorization {
    * @returns {removeMode}
    */
   removeMode (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
       accessMode.forEach((ea) => {
-        self.removeModeSingle(ea)
+        this.removeModeSingle(ea)
       })
     } else {
-      self.removeModeSingle(accessMode)
+      this.removeModeSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
@@ -509,15 +507,14 @@ class Authorization {
    * @returns {removeMode}
    */
   removeOrigin (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
       accessMode.forEach((ea) => {
-        self.removeOriginSingle(ea)
+        this.removeOriginSingle(ea)
       })
     } else {
-      self.removeOriginSingle(accessMode)
+      this.removeOriginSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
