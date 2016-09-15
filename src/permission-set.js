@@ -186,9 +186,9 @@ class PermissionSet {
     if (hashFragment in this.authorizations) {
       // An authorization for this agent and resource combination already exists
       // Merge the incoming access modes with its existing ones
-      this.authorizations[ hashFragment ].mergeWith(auth)
+      this.authorizations[hashFragment].mergeWith(auth)
     } else {
-      this.authorizations[ hashFragment ] = auth
+      this.authorizations[hashFragment] = auth
     }
     if (!auth.virtual && auth.allowsControl()) {
       // If acl:Control is involved, ensure implicit rules for the .acl resource
@@ -361,7 +361,7 @@ class PermissionSet {
     var auth
     var self = this
     Object.keys(this.authorizations).forEach(function (authKey) {
-      auth = self.authorizations[ authKey ]
+      auth = self.authorizations[authKey]
       authList.push(auth)
     })
     return authList
@@ -518,8 +518,8 @@ class PermissionSet {
     var sameAuths = true
     var myAuth, otherAuth
     myAuthKeys.forEach(function (authKey) {
-      myAuth = self.authorizations[ authKey ]
-      otherAuth = ps.authorizations[ authKey ]
+      myAuth = self.authorizations[authKey]
+      otherAuth = ps.authorizations[authKey]
       if (!otherAuth) {
         sameAuths = false
       }
@@ -636,7 +636,7 @@ class PermissionSet {
       let subjects = {}
       authSections = graph.match(null, vocab.acl('mode'))
       authSections.forEach(match => {
-        subjects[ match.subject.value ] = match.subject
+        subjects[match.subject.value] = match.subject
       })
       authSections = Object.keys(subjects).map(section => {
         return subjects[section]
@@ -721,7 +721,7 @@ class PermissionSet {
     }
     resourceUrl = resourceUrl || this.resourceUrl
     var hashFragment = Authorization.hashFragmentFor(webId, resourceUrl)
-    return this.authorizations[ hashFragment ]
+    return this.authorizations[hashFragment]
   }
 
   /**
@@ -734,7 +734,7 @@ class PermissionSet {
    */
   removeAuthorization (auth) {
     var hashFragment = auth.hashFragment()
-    delete this.authorizations[ hashFragment ]
+    delete this.authorizations[hashFragment]
     return this
   }
 
