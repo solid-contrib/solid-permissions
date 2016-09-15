@@ -5,7 +5,6 @@
  * @module authorization
  */
 
-// var hash = require('shorthash')
 var vocab = require('solid-namespace')
 
 /**
@@ -268,6 +267,10 @@ class Authorization {
     return this.accessModes[ Authorization.acl.CONTROL ]
   }
 
+  /**
+   * Returns a deep copy of this authorization.
+   * @return {Authorization}
+   */
   clone () {
     let auth = new Authorization()
     Object.assign(auth, JSON.parse(JSON.stringify(this)))
@@ -592,7 +595,6 @@ class Authorization {
   }
 }
 // --- Standalone (non-instance) functions --
-
 /**
  * Utility method that creates a hash fragment key for this authorization.
  * Used with graph serialization to RDF, and as a key to store authorizations
@@ -607,7 +609,6 @@ function hashFragmentFor (webId, resourceUrl,
                           authType = Authorization.ACCESS_TO) {
   var hashKey = webId + '-' + resourceUrl + '-' + authType
   return hashKey
-  // return hash.unique(hashKey)
 }
 Authorization.acl = modes()
 Authorization.ALL_MODES = [
