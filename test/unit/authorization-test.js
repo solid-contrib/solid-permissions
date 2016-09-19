@@ -17,6 +17,7 @@ test('a new Authorization()', function (t) {
   t.notOk(auth.isPublic())
   t.notOk(auth.webId())
   t.notOk(auth.resourceUrl)
+  t.equal(auth.accessType, Authorization.ACCESS_TO)
   t.deepEqual(auth.mailTo, [])
   t.deepEqual(auth.allOrigins(), [])
   t.deepEqual(auth.allModes(), [])
@@ -36,6 +37,7 @@ test('a new Authorization for a container', function (t) {
   t.notOk(auth.allowsControl())
   t.ok(auth.isInherited(),
     'Authorizations for containers should be inherited by default')
+  t.equal(auth.accessType, Authorization.DEFAULT)
   t.end()
 })
 
@@ -259,6 +261,14 @@ test('Comparing Authorizations test 7', function (t) {
   let auth2 = new Authorization()
   t.notOk(auth1.equals(auth2))
   auth2.addOrigin(origin)
+  t.ok(auth1.equals(auth2))
+  t.end()
+})
+
+test('Authorization.clone() test', function (t) {
+  let auth1 = new Authorization(resourceUrl, Authorization.INHERIT)
+  auth1.addMode([acl.READ, acl.WRITE])
+  let auth2 = auth1.clone()
   t.ok(auth1.equals(auth2))
   t.end()
 })

@@ -5,7 +5,6 @@
  * @module authorization
  */
 
-var hash = require('shorthash')
 var vocab = require('solid-namespace')
 
 /**
@@ -23,12 +22,6 @@ function modes () {
   }
   return acl
 }
-
-/**
- * Inherited authorization (acl:defaultForNew)
- * @type {Boolean}
- */
-var INHERIT = true
 
 /**
  * Models an individual authorization object, for a single resource and for
@@ -54,6 +47,15 @@ class Authorization {
      * @type {Object}
      */
     this.accessModes = {}
+    /**
+     * Type of authorization, either for a specific resource ('accessTo'),
+     * or to be inherited by all downstream resources ('default')
+     * @property accessType
+     * @type {String} Either 'accessTo' or 'default'
+     */
+    this.accessType = inherited
+      ? Authorization.DEFAULT
+      : Authorization.ACCESS_TO
     /**
      * URL of an agent's WebID (`acl:agent`). Inside an authorization, mutually
      * exclusive with the `group` property. Set via `setAgent()`.
@@ -96,6 +98,14 @@ class Authorization {
      * @type {String}
      */
     this.resourceUrl = resourceUrl
+    /**
+     * Should this authorization be serialized? (When writing back to an ACL
+     * resource, for example.) Used for implied (rather than explicit)
+     * authorization, such as ones that are derived from acl:Control statements.
+     * @property virtual
+     * @type {Boolean}
+     */
+    this.virtual = false
   }
 
   /**
@@ -105,7 +115,7 @@ class Authorization {
    */
   addMailTo (agent) {
     if (typeof agent !== 'string') {
-      agent = agent.object.uri
+      agent = agent.object.value
     }
     if (agent.startsWith('mailto:')) {
       agent = agent.split(':')[ 1 ]
@@ -122,15 +132,14 @@ class Authorization {
    * @return {Authorization} Returns self, chainable.
    */
   addMode (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
-      accessMode.forEach((ea) => {
-        self.addModeSingle(ea)
+      accessMode.forEach(ea => {
+        this.addModeSingle(ea)
       })
     } else {
-      self.addModeSingle(accessMode)
+      this.addModeSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
@@ -142,7 +151,7 @@ class Authorization {
    */
   addModeSingle (accessMode) {
     if (typeof accessMode !== 'string') {
-      accessMode = accessMode.object.uri
+      accessMode = accessMode.object.value
     }
     this.accessModes[ accessMode ] = true
     return this
@@ -157,15 +166,14 @@ class Authorization {
    * @return {Authorization} Returns self, chainable.
    */
   addOrigin (origin) {
-    var self = this
     if (Array.isArray(origin)) {
       origin.forEach((ea) => {
-        self.addOriginSingle(ea)
+        this.addOriginSingle(ea)
       })
     } else {
-      self.addOriginSingle(origin)
+      this.addOriginSingle(origin)
     }
-    return self
+    return this
   }
 
   /**
@@ -177,7 +185,7 @@ class Authorization {
    */
   addOriginSingle (origin) {
     if (typeof origin !== 'string') {
-      origin = origin.object.uri
+      origin = origin.object.value
     }
     this.originsAllowed[ origin ] = true
     return this
@@ -259,6 +267,16 @@ class Authorization {
   }
 
   /**
+   * Returns a deep copy of this authorization.
+   * @return {Authorization}
+   */
+  clone () {
+    let auth = new Authorization()
+    Object.assign(auth, JSON.parse(JSON.stringify(this)))
+    return auth
+  }
+
+  /**
    * Compares this authorization with another one.
    * Authorizations are equal iff they:
    *   - Are for the same agent or group
@@ -303,7 +321,8 @@ class Authorization {
     if (!this.webId || !this.resourceUrl) {
       throw new Error('Cannot call hashFragment() on an incomplete authorization')
     }
-    var hashFragment = hashFragmentFor(this.webId(), this.resourceUrl)
+    var hashFragment = hashFragmentFor(this.webId(), this.resourceUrl,
+      this.accessType)
     return hashFragment
   }
 
@@ -399,6 +418,10 @@ class Authorization {
     if (!this.webId() || !this.resourceUrl) {
       return []  // This Authorization is invalid, return empty array
     }
+    // Virtual / implied authorizations are not serialized
+    if (this.virtual) {
+      return []
+    }
     var statement
     var fragment = rdf.namedNode('#' + this.hashFragment())
     var ns = vocab(rdf)
@@ -452,15 +475,14 @@ class Authorization {
    * @returns {removeMode}
    */
   removeMode (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
       accessMode.forEach((ea) => {
-        self.removeModeSingle(ea)
+        this.removeModeSingle(ea)
       })
     } else {
-      self.removeModeSingle(accessMode)
+      this.removeModeSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
@@ -472,7 +494,7 @@ class Authorization {
    */
   removeModeSingle (accessMode) {
     if (typeof accessMode !== 'string') {
-      accessMode = accessMode.object.uri
+      accessMode = accessMode.object.value
     }
     delete this.accessModes[ accessMode ]
   }
@@ -485,15 +507,14 @@ class Authorization {
    * @returns {removeMode}
    */
   removeOrigin (accessMode) {
-    var self = this
     if (Array.isArray(accessMode)) {
       accessMode.forEach((ea) => {
-        self.removeOriginSingle(ea)
+        this.removeOriginSingle(ea)
       })
     } else {
-      self.removeOriginSingle(accessMode)
+      this.removeOriginSingle(accessMode)
     }
-    return self
+    return this
   }
 
   /**
@@ -505,7 +526,7 @@ class Authorization {
    */
   removeOriginSingle (origin) {
     if (typeof origin !== 'string') {
-      origin = origin.object.uri
+      origin = origin.object.value
     }
     delete this.originsAllowed[ origin ]
   }
@@ -515,12 +536,12 @@ class Authorization {
    * setter method to enforce mutual exclusivity with `group` property, until
    * ES6 setter methods become available.
    * @method setAgent
-   * @param agent {String|Statement} Agent URL (or `acl:agent` RDF triple).
+   * @param agent {String|Quad} Agent URL (or `acl:agent` RDF triple).
    */
   setAgent (agent) {
     if (typeof agent !== 'string') {
       // This is an RDF statement
-      agent = agent.object.uri
+      agent = agent.object.value
     }
     if (agent === Authorization.acl.EVERYONE) {
       this.setPublic()
@@ -545,7 +566,7 @@ class Authorization {
   setGroup (agentClass) {
     if (typeof agentClass !== 'string') {
       // This is an RDF statement
-      agentClass = agentClass.object.uri
+      agentClass = agentClass.object.value
     }
     if (this.agent) {
       throw new Error('Cannot set group, authorization already has an agent set')
@@ -571,22 +592,33 @@ class Authorization {
   }
 }
 // --- Standalone (non-instance) functions --
-
 /**
  * Utility method that creates a hash fragment key for this authorization.
  * Used with graph serialization to RDF, and as a key to store authorizations
  * in a PermissionSet. Exported (mainly for use in PermissionSet).
  * @method hashFragmentFor
- * @param webId {String}
- * @param resourceUrl {String}
+ * @param webId {String} Agent or group web id
+ * @param resourceUrl {String} Resource or container URL for this authorization
+ * @param [authType='accessTo'] {String} Either 'accessTo' or 'default'
  * @return {String}
  */
-function hashFragmentFor (webId, resourceUrl) {
-  var hashKey = webId + '-' + resourceUrl
-  return hash.unique(hashKey)
+function hashFragmentFor (webId, resourceUrl,
+                          authType = Authorization.ACCESS_TO) {
+  var hashKey = webId + '-' + resourceUrl + '-' + authType
+  return hashKey
 }
 Authorization.acl = modes()
+Authorization.ALL_MODES = [
+  Authorization.acl.READ,
+  Authorization.acl.WRITE,
+  Authorization.acl.CONTROL
+]
 Authorization.hashFragmentFor = hashFragmentFor
-Authorization.INHERIT = INHERIT
+
+// Exported constants, for convenience / readability
+Authorization.INHERIT = true
+Authorization.NOT_INHERIT = !Authorization.INHERIT
+Authorization.ACCESS_TO = 'accessTo'
+Authorization.DEFAULT = 'default'
 
 module.exports = Authorization
