@@ -52,8 +52,7 @@ const GROUP_INDEX = 'groups'
  * @constructor
  */
 class PermissionSet {
-  constructor (resourceUrl, aclUrl, isContainer, options) {
-    options = options || {}
+  constructor (resourceUrl, aclUrl, isContainer, options = {}) {
     /**
      * Hashmap of all Authorizations in this permission set, keyed by a hashed
      * combination of an agent's/group's webId and the resourceUrl.

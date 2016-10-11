@@ -217,6 +217,9 @@ class Authorization {
   allowsMode (accessMode) {
     // Normalize the access mode
     accessMode = Authorization.acl[accessMode.toUpperCase()] || accessMode
+    if (accessMode === Authorization.acl.APPEND) {
+      return this.allowsAppend()  // Handle the Append special case
+    }
     return this.accessModes[accessMode]
   }
   /**
