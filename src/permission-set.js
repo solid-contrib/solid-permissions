@@ -398,8 +398,8 @@ class PermissionSet {
         this.origin === this.host) {  // same origin is trusted
       return true
     }
-    return authorization.allowsOrigin(this.origin) ||
-        authorization.allowsOrigin(this.host)
+    // If not same origin, check that the origin is in the explicit ACL list
+    return authorization.allowsOrigin(this.origin)
   }
 
   /**
