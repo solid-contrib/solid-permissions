@@ -393,7 +393,9 @@ class PermissionSet {
    * @return {Boolean}
    */
   checkOrigin (authorization) {
-    if (!this.enforceOrigin()) {
+    if (!this.strictOrigin ||  // Enforcement turned off in server config
+        !this.origin ||  // No origin - not a script, do not enforce origin
+        this.origin === this.host) {  // same origin is trusted
       return true
     }
     return authorization.allowsOrigin(this.origin) ||
