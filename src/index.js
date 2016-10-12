@@ -4,6 +4,7 @@
  */
 
 var PermissionSet = require('./permission-set')
+var Authorization = require('./authorization')
 /**
  * Clears (deletes) an ACL resource for a given resource url.
  * Usage:
@@ -76,3 +77,4 @@ function getPermissions (resourceUrl, webClient, rdf) {
 module.exports.clearPermissions = clearPermissions
 module.exports.getPermissions = getPermissions
 module.exports.PermissionSet = PermissionSet
+module.exports.Authorization = Authorization

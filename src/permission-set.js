@@ -52,8 +52,7 @@ const GROUP_INDEX = 'groups'
  * @constructor
  */
 class PermissionSet {
-  constructor (resourceUrl, aclUrl, isContainer, options) {
-    options = options || {}
+  constructor (resourceUrl, aclUrl, isContainer, options = {}) {
     /**
      * Hashmap of all Authorizations in this permission set, keyed by a hashed
      * combination of an agent's/group's webId and the resourceUrl.
@@ -394,11 +393,13 @@ class PermissionSet {
    * @return {Boolean}
    */
   checkOrigin (authorization) {
-    if (!this.enforceOrigin()) {
+    if (!this.strictOrigin ||  // Enforcement turned off in server config
+        !this.origin ||  // No origin - not a script, do not enforce origin
+        this.origin === this.host) {  // same origin is trusted
       return true
     }
-    return authorization.allowsOrigin(this.origin) ||
-        authorization.allowsOrigin(this.host)
+    // If not same origin, check that the origin is in the explicit ACL list
+    return authorization.allowsOrigin(this.origin)
   }
 
   /**
@@ -446,16 +447,6 @@ class PermissionSet {
    */
   get count () {
     return Object.keys(this.authorizations).length
-  }
-
-  /**
-   * Tests whether the permission set should enforce a strict origin for the
-   * request.
-   * @method enforceOrigin
-   * @return {Boolean}
-   */
-  enforceOrigin () {
-    return this.strictOrigin && this.origin
   }
 
   /**

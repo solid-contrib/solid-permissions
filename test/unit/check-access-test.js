@@ -6,6 +6,21 @@ const acl = Authorization.acl
 const PermissionSet = require('../../src/permission-set')
 const aliceWebId = 'https://alice.example.com/#me'
 
+test('PermissionSet checkAccess() test - Append access', t => {
+  let resourceUrl = 'https://alice.example.com/docs/file1'
+  let aclUrl = 'https://alice.example.com/docs/.acl'
+  let ps = new PermissionSet(resourceUrl, aclUrl)
+  ps.addPermission(aliceWebId, acl.WRITE)
+  ps.checkAccess(resourceUrl, aliceWebId, acl.APPEND)
+    .then(result => {
+      t.ok(result, 'Alice should have Append access implied by Write access')
+    })
+    .catch(err => {
+      t.fail(err)
+    })
+  t.end()
+})
+
 test('PermissionSet checkAccess() test - accessTo', function (t) {
   let containerUrl = 'https://alice.example.com/docs/'
   let containerAclUrl = 'https://alice.example.com/docs/.acl'
