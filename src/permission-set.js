@@ -450,16 +450,6 @@ class PermissionSet {
   }
 
   /**
-   * Tests whether the permission set should enforce a strict origin for the
-   * request.
-   * @method enforceOrigin
-   * @return {Boolean}
-   */
-  enforceOrigin () {
-    return this.strictOrigin && this.origin
-  }
-
-  /**
    * Returns whether or not this permission set is equal to another one.
    * A PermissionSet is considered equal to another one iff:
    * - It has the same number of authorizations, and each of those authorizations
