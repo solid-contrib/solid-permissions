@@ -1,7 +1,8 @@
 'use strict'
 
 const test = require('tape')
-var rdf = require('rdflib')
+const sinon = require('sinon')
+const rdf = require('rdflib')
 const Authorization = require('../../src/authorization')
 const acl = Authorization.acl
 const PermissionSet = require('../../src/permission-set')
@@ -258,4 +259,26 @@ test('PermissionSet init from untyped ACL test', function (t) {
   t.ok(ps.count,
     'Permission set should init correctly without acl:Authorization type')
   t.end()
+})
+
+test('PermissionSet save() test', t => {
+  let resourceUrl = 'https://alice.example.com/docs/file1'
+  let aclUrl = 'https://alice.example.com/docs/file1.acl'
+  let isContainer = false
+  let putSpy = sinon.spy()
+  let mockWebClient = {
+    put: putSpy
+  }
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
+    { rdf, webClient: mockWebClient })
+  ps.save()
+    .then(() => {
+      t.ok(putSpy.calledWith(aclUrl),
+        'ps.save() should result to a PUT to .acl url')
+      t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail()
+    })
 })

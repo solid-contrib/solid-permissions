@@ -21,6 +21,7 @@ const acl = Authorization.acl
 const ns = require('solid-namespace')
 
 const DEFAULT_ACL_SUFFIX = '.acl'
+const DEFAULT_CONTENT_TYPE = 'text/turtle'
 /**
  * Resource types, used by PermissionSet objects
  */
@@ -719,11 +720,12 @@ class PermissionSet {
    * @method save
    * @param [aclUrl] {String} Optional URL to save the .ACL resource to. Defaults
    *   to its pre-set `aclUrl`, if not explicitly passed in.
+   * @param [contentType] {string} Optional content type to serialize it as
    * @throws {Error} Rejects with an error if it doesn't know where to save, or
    *   with any XHR errors that crop up.
    * @return {Promise<Request>}
    */
-  save (aclUrl, rdf, webClient) {
+  save (aclUrl, contentType, rdf, webClient) {
     aclUrl = aclUrl || this.aclUrl
     if (!aclUrl) {
       return Promise.reject(new Error('Cannot save - unknown target url'))
@@ -736,7 +738,10 @@ class PermissionSet {
     if (!webClient) {
       return Promise.reject(new Error('Cannot save - no web client'))
     }
-    return webClient.put(aclUrl, this.serialize(rdf))
+    contentType = contentType || DEFAULT_CONTENT_TYPE
+    let graph = this.serialize(rdf, contentType)
+    return Promise.resolve()
+      .then(() => { return webClient.put(aclUrl, graph, contentType) })
   }
 
   /**
@@ -752,8 +757,7 @@ class PermissionSet {
    *   serialization.
    * @return {Promise<String>} Graph serialized to contentType RDF syntax
    */
-  serialize (contentType, rdf) {
-    contentType = contentType || 'text/turtle'
+  serialize (rdf, contentType = DEFAULT_CONTENT_TYPE) {
     rdf = rdf || this.rdf
     var graph = this.buildGraph(rdf)
     var target = null
