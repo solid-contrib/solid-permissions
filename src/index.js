@@ -62,7 +62,7 @@ function getPermissions (resourceUrl, webClient, rdf) {
       }
       permissions =
         new PermissionSet(resourceUrl, aclResourceUrl, response.isContainer(),
-          rdf, webClient)
+          { rdf, webClient })
       return webClient.get(aclResourceUrl)
         .then((response) => {
           return response.parsedGraph()
