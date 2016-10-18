@@ -21,7 +21,7 @@ test('clearPermissions() test', t => {
   let aclUrl = resourceUrl + '.acl'
   acls.clearPermissions(resourceUrl, mockWebClient)
     .then(() => {
-      t.ok(deleteSpy.calledWith, aclUrl,
+      t.ok(deleteSpy.calledWith(aclUrl),
         'should result in a DELETE call to the .acl url')
       t.end()
     })
