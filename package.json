@@ -49,7 +49,7 @@
   "devDependencies": {
     "rdflib": "^0.12.1",
     "sinon": "^1.17.6",
-    "solid-web-client": "0.0.8",
+    "solid-web-client": "0.0.9",
     "standard": "^5.4.1",
     "tape": "^4.4.0"
   },
