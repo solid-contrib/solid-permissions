@@ -11,14 +11,14 @@ const mockWebClient = {
   head: (url) => {
     let response = new SolidResponse()
     response.url = url
-    response.acl = '.acl'
+    response.acl = 'resource1.acl'
     return Promise.resolve(response)
   },
   del: deleteSpy
 }
 
 test('clearPermissions() test', t => {
-  let aclUrl = resourceUrl + '.acl'
+  let aclUrl = 'https://example.com/resource1.acl'
   acls.clearPermissions(resourceUrl, mockWebClient)
     .then(() => {
       t.ok(deleteSpy.calledWith(aclUrl),

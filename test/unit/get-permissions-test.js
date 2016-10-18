@@ -22,7 +22,7 @@ const mockWebClient = {
     let response = new SolidResponse()
     response.rdf = rdf
     response.url = url
-    response.acl = '.acl'
+    response.acl = 'resource1.acl'
     return Promise.resolve(response)
   },
   get: (url) => {
