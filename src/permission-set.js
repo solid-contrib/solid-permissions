@@ -573,13 +573,10 @@ class PermissionSet {
    *   acls.initFromGraph(graph)
    *   ```
    * @method initFromGraph
-   * @param graph {Graph} RDF Graph (parsed from the source ACL)
-   * @param [rdf] {RDF} Optional RDF Library (needs to be either passed in here,
-   *   or in the constructor)
+   * @param graph {Dataset} RDF Graph (parsed from the source ACL)
    */
-  initFromGraph (graph, rdf) {
-    rdf = rdf || this.rdf
-    let vocab = ns(rdf)
+  initFromGraph (graph) {
+    let vocab = ns(this.rdf)
     let authSections = graph.match(null, null, vocab.acl('Authorization'))
     if (authSections.length) {
       authSections = authSections.map(match => { return match.subject })
@@ -718,30 +715,27 @@ class PermissionSet {
 
   /**
    * @method save
-   * @param [aclUrl] {String} Optional URL to save the .ACL resource to. Defaults
-   *   to its pre-set `aclUrl`, if not explicitly passed in.
-   * @param [contentType] {string} Optional content type to serialize it as
+   * @param [options={}] {Object} Options hashmap
+   * @param [options.aclUrl] {String} Optional URL to save the .ACL resource to.
+   *   Defaults to its pre-set `aclUrl`, if not explicitly passed in.
+   * @param [options.contentType] {string} Optional content type to serialize as
    * @throws {Error} Rejects with an error if it doesn't know where to save, or
    *   with any XHR errors that crop up.
-   * @return {Promise<Request>}
+   * @return {Promise<SolidResponse>}
    */
-  save (aclUrl, contentType, rdf, webClient) {
-    aclUrl = aclUrl || this.aclUrl
+  save (options = {}) {
+    let aclUrl = options.aclUrl || this.aclUrl
+    let contentType = options.contentType || DEFAULT_CONTENT_TYPE
     if (!aclUrl) {
       return Promise.reject(new Error('Cannot save - unknown target url'))
     }
-    rdf = rdf || this.rdf
-    if (!rdf) {
-      return Promise.reject(new Error('Cannot save - no rdf library'))
-    }
-    webClient = webClient || this.webClient
-    if (!webClient) {
+    if (!this.webClient) {
       return Promise.reject(new Error('Cannot save - no web client'))
     }
-    contentType = contentType || DEFAULT_CONTENT_TYPE
-    let graph = this.serialize(rdf, contentType)
-    return Promise.resolve()
-      .then(() => { return webClient.put(aclUrl, graph, contentType) })
+    return this.serialize({ contentType })
+      .then(graph => {
+        return this.webClient.put(aclUrl, graph, contentType)
+      })
   }
 
   /**
@@ -751,19 +745,24 @@ class PermissionSet {
    * at least one resourceUrl and at least one access mode) do not get serialized,
    * and are instead skipped.
    * @method serialize
-   * @param rdf {RDF} RDF Library
-   * @param [contentType='text/turtle'] {String}
+   * @param [options={}] {Object} Options hashmap
+   * @param [options.contentType='text/turtle'] {string}
+   * @param [options.rdf] {RDF} RDF Library to serialize with
    * @throws {Error} Rejects with an error if one is encountered during RDF
    *   serialization.
    * @return {Promise<String>} Graph serialized to contentType RDF syntax
    */
-  serialize (rdf, contentType = DEFAULT_CONTENT_TYPE) {
-    rdf = rdf || this.rdf
-    var graph = this.buildGraph(rdf)
-    var target = null
-    var base = null
-    return new Promise(function (resolve, reject) {
-      rdf.serialize(target, graph, base, contentType, function (err, result) {
+  serialize (options = {}) {
+    let contentType = options.contentType || DEFAULT_CONTENT_TYPE
+    let rdf = options.rdf || this.rdf
+    if (!rdf) {
+      return Promise.reject(new Error('Cannot save - no rdf library'))
+    }
+    let graph = this.buildGraph(rdf)
+    let target = null
+    let base = null
+    return new Promise((resolve, reject) => {
+      rdf.serialize(target, graph, base, contentType, (err, result) => {
         if (err) { return reject(err) }
         if (!result) {
           return reject(new Error('Error serializing the graph to ' +
