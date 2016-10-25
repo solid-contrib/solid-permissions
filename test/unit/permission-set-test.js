@@ -1,7 +1,9 @@
 'use strict'
 
 const test = require('tape')
-var rdf = require('rdflib')
+const before = test
+const sinon = require('sinon')
+const rdf = require('rdflib')
 const Authorization = require('../../src/authorization')
 const acl = Authorization.acl
 const PermissionSet = require('../../src/permission-set')
@@ -15,13 +17,32 @@ const aliceWebId = 'https://alice.example.com/#me'
 // Not really sure what group webIDs will look like, not yet implemented:
 const groupWebId = 'https://devteam.example.com/something'
 
-function parseGraph (rdf, baseUrl, rdfSource, contentType) {
-  var parsedGraph = rdf.graph()
-  rdf.parse(rdfSource, parsedGraph, baseUrl, contentType)
-  return parsedGraph
+function parseGraph (rdf, baseUrl, rdfSource, contentType = 'text/turtle') {
+  let graph = rdf.graph()
+  return new Promise((resolve, reject) => {
+    rdf.parse(rdfSource, graph, baseUrl, contentType, (err, result) => {
+      if (err) { return reject(err) }
+      if (!result) {
+        return reject(new Error('Error serializing the graph to ' +
+          contentType))
+      }
+      resolve(result)
+    })
+  })
 }
 const rawAclSource = require('../resources/acl-container-ttl')
-const parsedAclGraph = parseGraph(rdf, aclUrl, rawAclSource, 'text/turtle')
+var parsedAclGraph
+
+before('init graph', t => {
+  return parseGraph(rdf, aclUrl, rawAclSource)
+    .then(graph => {
+      parsedAclGraph = graph
+      t.end()
+    })
+    .catch(err => {
+      t.fail(err)
+    })
+})
 
 test('a new PermissionSet()', function (t) {
   let ps = new PermissionSet()
@@ -142,7 +163,7 @@ test('a PermissionSet can be initialized from an .acl graph', function (t) {
   let isContainer = false
   // see test/resources/acl-container-ttl.js
   let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
-    { graph: parsedAclGraph, rdf: rdf })
+    { graph: parsedAclGraph, rdf })
 
   // Check to make sure Alice's authorizations were read in correctly
   let auth = ps.findAuthByAgent(aliceWebId, resourceUrl)
@@ -216,7 +237,7 @@ test('PermissionSet equals test 4', function (t) {
 
 test('PermissionSet serialized & deserialized round trip test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf })
   let auth = ps.permissionFor(aliceWebId)
   // console.log(ps.serialize())
   t.ok(ps.equals(ps), 'A PermissionSet should equal itself')
@@ -225,10 +246,11 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
     .then((serializedTurtle) => {
       // Now that the PermissionSet is serialized to a Turtle string,
       // let's re-parse that string into a new graph
-      let parsedGraph = parseGraph(rdf, containerAclUrl, serializedTurtle,
-        'text/turtle')
+      return parseGraph(rdf, containerAclUrl, serializedTurtle)
+    })
+    .then(parsedGraph => {
       let ps2 = new PermissionSet(containerUrl, containerAclUrl,
-        PermissionSet.CONTAINER, { graph: parsedGraph, rdf: rdf })
+        PermissionSet.CONTAINER, { graph: parsedGraph, rdf })
       // console.log(ps2.serialize())
       t.ok(ps.equals(ps2),
         'A PermissionSet serialized and re-parsed should equal the original one')
@@ -238,7 +260,7 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
 
 test('PermissionSet allowsPublic() test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
-    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf: rdf })
+    PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf })
   let otherUrl = 'https://alice.example.com/profile/card'
   t.ok(ps.allowsPublic(acl.READ, otherUrl),
     'Alice\'s profile should be public-readable')
@@ -251,11 +273,93 @@ test('PermissionSet init from untyped ACL test', function (t) {
   let rawAclSource = require('../resources/untyped-acl-ttl')
   let resourceUrl = 'https://alice.example.com/docs/file1'
   let aclUrl = 'https://alice.example.com/docs/file1.acl'
-  let parsedAclGraph = parseGraph(rdf, aclUrl, rawAclSource, 'text/turtle')
   let isContainer = false
+  parseGraph(rdf, aclUrl, rawAclSource)
+    .then(graph => {
+      let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
+        { graph, rdf })
+      t.ok(ps.count,
+        'Permission set should init correctly without acl:Authorization type')
+      t.end()
+    })
+})
+
+test('PermissionSet serialize() no rdf test', t => {
+  let ps = new PermissionSet()
+  ps.serialize()
+    .then(() => {
+      t.fail('Serialize should not succeed with no rdf lib')
+    })
+    .catch(err => {
+      t.equal(err.message, 'Cannot save - no rdf library')
+      t.end()
+    })
+})
+
+test('PermissionSet serialize() rdflib errors test', t => {
+  let ps = new PermissionSet(resourceUrl, aclUrl, false,
+    { rdf, graph: parsedAclGraph })
+  ps.serialize({ contentType: 'invalid' })
+    .then(() => {
+      t.fail('Serialize should not succeed with an rdflib error')
+    })
+    .catch(err => {
+      t.ok(err.message.startsWith('Serialize: Content-type invalid'))
+      t.end()
+    })
+})
+
+test('PermissionSet save() test', t => {
+  let resourceUrl = 'https://alice.example.com/docs/file1'
+  let aclUrl = 'https://alice.example.com/docs/file1.acl'
+  let isContainer = false
+  let putStub = sinon.stub().returns(Promise.resolve())
+  let mockWebClient = {
+    put: putStub
+  }
   let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
-    { graph: parsedAclGraph, rdf: rdf })
-  t.ok(ps.count,
-    'Permission set should init correctly without acl:Authorization type')
-  t.end()
+    { rdf, graph: parsedAclGraph, webClient: mockWebClient })
+  let serializedGraph
+  ps.serialize()
+    .then(ttl => {
+      serializedGraph = ttl
+      return ps.save()
+    })
+    .then(() => {
+      t.ok(putStub.calledWith(aclUrl, serializedGraph, 'text/turtle'),
+        'ps.save() should result to a PUT to .acl url')
+      t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail()
+    })
+})
+
+test('PermissionSet save() no aclUrl test', t => {
+  let nullAclUrl
+  let ps = new PermissionSet(resourceUrl, nullAclUrl, false,
+    { rdf, graph: parsedAclGraph })
+  ps.save()
+    .then(() => {
+      t.fail('ps.save() should not succeed with no acl url set')
+    })
+    .catch(err => {
+      t.equal(err.message, 'Cannot save - unknown target url')
+      t.end()
+    })
+})
+
+test('PermissionSet save() no web client test', t => {
+  let nullAclUrl
+  let ps = new PermissionSet(resourceUrl, aclUrl, false,
+    { rdf, graph: parsedAclGraph })
+  ps.save()
+    .then(() => {
+      t.fail('ps.save() should not succeed with no web client set')
+    })
+    .catch(err => {
+      t.equal(err.message, 'Cannot save - no web client')
+      t.end()
+    })
 })
