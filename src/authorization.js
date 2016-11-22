@@ -6,22 +6,12 @@
  */
 
 var vocab = require('solid-namespace')
+const { acl } = require('./modes')
 
 /**
  * Returns a set of convenience constants, for use with `addPermission()` etc.
  * Exported as `Authorization.acl`.
  */
-function modes () {
-  var ns = vocab()
-  var acl = {
-    'READ': ns.acl('Read'),
-    'WRITE': ns.acl('Write'),
-    'APPEND': ns.acl('Append'),
-    'CONTROL': ns.acl('Control'),
-    'EVERYONE': ns.foaf('Agent')
-  }
-  return acl
-}
 
 /**
  * Models an individual authorization object, for a single resource and for
@@ -54,8 +44,8 @@ class Authorization {
      * @type {String} Either 'accessTo' or 'default'
      */
     this.accessType = inherited
-      ? Authorization.DEFAULT
-      : Authorization.ACCESS_TO
+      ? acl.DEFAULT
+      : acl.ACCESS_TO
     /**
      * URL of an agent's WebID (`acl:agent`). Inside an authorization, mutually
      * exclusive with the `group` property. Set via `setAgent()`.
@@ -216,8 +206,8 @@ class Authorization {
    */
   allowsMode (accessMode) {
     // Normalize the access mode
-    accessMode = Authorization.acl[accessMode.toUpperCase()] || accessMode
-    if (accessMode === Authorization.acl.APPEND) {
+    accessMode = acl[accessMode.toUpperCase()] || accessMode
+    if (accessMode === acl.APPEND) {
       return this.allowsAppend()  // Handle the Append special case
     }
     return this.accessModes[accessMode]
@@ -238,7 +228,7 @@ class Authorization {
    * @return {Boolean}
    */
   allowsRead () {
-    return this.accessModes[ Authorization.acl.READ ]
+    return this.accessModes[ acl.READ ]
   }
 
   /**
@@ -247,7 +237,7 @@ class Authorization {
    * @return {Boolean}
    */
   allowsWrite () {
-    return this.accessModes[ Authorization.acl.WRITE ]
+    return this.accessModes[ acl.WRITE ]
   }
 
   /**
@@ -256,8 +246,7 @@ class Authorization {
    * @return {Boolean}
    */
   allowsAppend () {
-    return this.accessModes[ Authorization.acl.APPEND ] ||
-      this.accessModes[ Authorization.acl.WRITE ]
+    return this.accessModes[ acl.APPEND ] || this.accessModes[ acl.WRITE ]
   }
 
   /**
@@ -266,7 +255,7 @@ class Authorization {
    * @return {Boolean}
    */
   allowsControl () {
-    return this.accessModes[ Authorization.acl.CONTROL ]
+    return this.accessModes[ acl.CONTROL ]
   }
 
   /**
@@ -354,7 +343,7 @@ class Authorization {
    * @return {Boolean}
    */
   isPublic () {
-    return this.group === Authorization.acl.EVERYONE
+    return this.group === acl.EVERYONE
   }
 
   /**
@@ -546,7 +535,7 @@ class Authorization {
       // This is an RDF statement
       agent = agent.object.value
     }
-    if (agent === Authorization.acl.EVERYONE) {
+    if (agent === acl.EVERYONE) {
       this.setPublic()
     } else if (this.group) {
       throw new Error('Cannot set agent, authorization already has a group set')
@@ -582,7 +571,7 @@ class Authorization {
    * @method setPublic
    */
   setPublic () {
-    this.setGroup(Authorization.acl.EVERYONE)
+    this.setGroup(acl.EVERYONE)
   }
 
   /**
@@ -606,22 +595,11 @@ class Authorization {
  * @return {String}
  */
 function hashFragmentFor (webId, resourceUrl,
-                          authType = Authorization.ACCESS_TO) {
+                          authType = acl.ACCESS_TO) {
   var hashKey = webId + '-' + resourceUrl + '-' + authType
   return hashKey
 }
-Authorization.acl = modes()
-Authorization.ALL_MODES = [
-  Authorization.acl.READ,
-  Authorization.acl.WRITE,
-  Authorization.acl.CONTROL
-]
-Authorization.hashFragmentFor = hashFragmentFor
 
-// Exported constants, for convenience / readability
-Authorization.INHERIT = true
-Authorization.NOT_INHERIT = !Authorization.INHERIT
-Authorization.ACCESS_TO = 'accessTo'
-Authorization.DEFAULT = 'default'
+Authorization.hashFragmentFor = hashFragmentFor
 
 module.exports = Authorization

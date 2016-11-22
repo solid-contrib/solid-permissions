@@ -2,7 +2,7 @@
 
 const test = require('tape')
 const Authorization = require('../../src/authorization')
-const acl = Authorization.acl
+const { acl } = require('../../src/modes')
 const PermissionSet = require('../../src/permission-set')
 const aliceWebId = 'https://alice.example.com/#me'
 

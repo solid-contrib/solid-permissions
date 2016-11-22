@@ -17,7 +17,7 @@
  */
 
 const Authorization = require('./authorization')
-const acl = Authorization.acl
+const { acl } = require('./modes')
 const ns = require('solid-namespace')
 
 const DEFAULT_ACL_SUFFIX = '.acl'
@@ -205,7 +205,7 @@ class PermissionSet {
     let impliedAuth = auth.clone()
     impliedAuth.resourceUrl = this.aclUrlFor(auth.resourceUrl)
     impliedAuth.virtual = true
-    impliedAuth.addMode(Authorization.ALL_MODES)
+    impliedAuth.addMode(acl.ALL_MODES)
     this.addAuthorization(impliedAuth)
   }
 
@@ -500,7 +500,7 @@ class PermissionSet {
       return false
     }
     // first check the accessTo type
-    let accessToAuths = index[webId][Authorization.ACCESS_TO]
+    let accessToAuths = index[webId][acl.ACCESS_TO]
     let accessToMatch
     if (accessToAuths) {
       accessToMatch = accessToAuths[resourceUrl]
@@ -509,7 +509,7 @@ class PermissionSet {
       return accessToMatch
     }
     // then check the default/inherited type permissions
-    let defaultAuths = index[webId][Authorization.DEFAULT]
+    let defaultAuths = index[webId][acl.DEFAULT]
     let defaultMatch
     if (defaultAuths) {
       // First try an exact match (resource matches the acl:default object)
@@ -620,7 +620,7 @@ class PermissionSet {
         let accessToMatches = graph.match(fragment, vocab.acl('accessTo'))
         accessToMatches.forEach(resourceMatch => {
           let resourceUrl = resourceMatch.object.value
-          this.addAuthorizationFor(resourceUrl, Authorization.NOT_INHERIT,
+          this.addAuthorizationFor(resourceUrl, acl.NOT_INHERIT,
             agentMatch, accessModes, origins, mailTos)
         })
         // Extract inherited / acl:default statements
@@ -628,7 +628,7 @@ class PermissionSet {
           .concat(graph.match(fragment, vocab.acl('defaultForNew')))
         inheritedMatches.forEach(containerMatch => {
           let containerUrl = containerMatch.object.value
-          this.addAuthorizationFor(containerUrl, Authorization.INHERIT,
+          this.addAuthorizationFor(containerUrl, acl.INHERIT,
             agentMatch, accessModes, origins, mailTos)
         })
       })

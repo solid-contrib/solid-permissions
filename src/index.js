@@ -5,6 +5,8 @@
 
 var PermissionSet = require('./permission-set')
 var Authorization = require('./authorization')
+var aclModes = require('./modes')
+
 /**
  * Clears (deletes) an ACL resource for a given resource url.
  * Usage:
@@ -78,3 +80,6 @@ module.exports.clearPermissions = clearPermissions
 module.exports.getPermissions = getPermissions
 module.exports.PermissionSet = PermissionSet
 module.exports.Authorization = Authorization
+
+// Export all the acl-related constants and modes at the top (index) level
+Object.assign(module.exports, aclModes.acl)

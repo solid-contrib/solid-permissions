@@ -5,7 +5,7 @@ const before = test
 const sinon = require('sinon')
 const rdf = require('rdflib')
 const Authorization = require('../../src/authorization')
-const acl = Authorization.acl
+const { acl } = require('../../src/modes')
 const PermissionSet = require('../../src/permission-set')
 
 const resourceUrl = 'https://alice.example.com/docs/file1'
