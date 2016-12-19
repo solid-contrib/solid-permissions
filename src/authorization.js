@@ -201,7 +201,8 @@ class Authorization {
 
   /**
    * Tests whether this authorization grant the specified access mode
-   * @param accessMode {String}
+   * @param accessMode {String|NamedNode} Either a named node for the access
+   *   mode or a string key ('write', 'read' etc) that maps to that mode.
    * @return {Boolean}
    */
   allowsMode (accessMode) {
