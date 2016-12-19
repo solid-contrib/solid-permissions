@@ -3,7 +3,7 @@
 var test = require('tape')
 // var rdf = require('rdflib')
 var Authorization = require('../../src/authorization')
-var acl = Authorization.acl
+const { acl } = require('../../src/modes')
 
 const resourceUrl = 'https://bob.example.com/docs/file1'
 const agentWebId = 'https://bob.example.com/profile/card#me'
@@ -17,7 +17,7 @@ test('a new Authorization()', function (t) {
   t.notOk(auth.isPublic())
   t.notOk(auth.webId())
   t.notOk(auth.resourceUrl)
-  t.equal(auth.accessType, Authorization.ACCESS_TO)
+  t.equal(auth.accessType, acl.ACCESS_TO)
   t.deepEqual(auth.mailTo, [])
   t.deepEqual(auth.allOrigins(), [])
   t.deepEqual(auth.allModes(), [])
@@ -28,7 +28,7 @@ test('a new Authorization()', function (t) {
 })
 
 test('a new Authorization for a container', function (t) {
-  let auth = new Authorization(resourceUrl, Authorization.INHERIT)
+  let auth = new Authorization(resourceUrl, acl.INHERIT)
   t.equal(auth.resourceUrl, resourceUrl)
   t.notOk(auth.webId())
   t.notOk(auth.allowsRead())
@@ -37,7 +37,7 @@ test('a new Authorization for a container', function (t) {
   t.notOk(auth.allowsControl())
   t.ok(auth.isInherited(),
     'Authorizations for containers should be inherited by default')
-  t.equal(auth.accessType, Authorization.DEFAULT)
+  t.equal(auth.accessType, acl.DEFAULT)
   t.end()
 })
 
@@ -236,10 +236,10 @@ test('Comparing Authorizations test 4', function (t) {
 })
 
 test('Comparing Authorizations test 5', function (t) {
-  let auth1 = new Authorization(resourceUrl, Authorization.INHERIT)
+  let auth1 = new Authorization(resourceUrl, acl.INHERIT)
   let auth2 = new Authorization(resourceUrl)
   t.notOk(auth1.equals(auth2))
-  auth2.inherited = Authorization.INHERIT
+  auth2.inherited = acl.INHERIT
   t.ok(auth1.equals(auth2))
   t.end()
 })
@@ -266,7 +266,7 @@ test('Comparing Authorizations test 7', function (t) {
 })
 
 test('Authorization.clone() test', function (t) {
-  let auth1 = new Authorization(resourceUrl, Authorization.INHERIT)
+  let auth1 = new Authorization(resourceUrl, acl.INHERIT)
   auth1.addMode([acl.READ, acl.WRITE])
   let auth2 = auth1.clone()
   t.ok(auth1.equals(auth2))
