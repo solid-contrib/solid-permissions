@@ -11,6 +11,8 @@
   ],
   "scripts": {
     "build": "babel src -d lib",
+    "preversion": "npm test",
+    "postversion": "git push --follow-tags",
     "prepublish": "npm test && npm run build",
     "standard": "standard *.js src/*.js",
     "tape": "tape test/unit/*.js",
