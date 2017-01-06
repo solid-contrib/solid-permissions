@@ -38,6 +38,8 @@ test('a new PermissionSet()', function (t) {
   t.equal(ps.count, 0, 'should have a count of 0')
   t.notOk(ps.resourceUrl, 'should have a null resource url')
   t.notOk(ps.aclUrl, 'should have a null acl url')
+  t.deepEqual(ps.allAuthorizations(), [])
+  t.notOk(ps.hasGroups(), 'should have no group auths')
   t.end()
 })
 
@@ -387,14 +389,16 @@ test('PermissionSet parsing acl with agentGroup', t => {
 test('PermissionSet groupUris() test', t => {
   let resourceUrl = 'https://alice.example.com/docs/file2.ttl'
   let ps = new PermissionSet(resourceUrl)
+  ps.addGroupPermission(acl.EVERYONE, acl.READ)
+  // By default, groupUris() excludes the Public agentClass
   t.deepEquals(ps.groupUris(), [])
+  t.notOk(ps.hasGroups())
   let groupUrl = 'https://alice.example.com/work-groups#Accounting'
   ps.addGroupPermission(groupUrl, acl.WRITE)
-  ps.addGroupPermission(acl.EVERYONE, acl.READ)
-
-  // By default, groupUris() excludes the Public agentClass
   t.equals(ps.groupUris().length, 1)
+  t.ok(ps.hasGroups())
   let excludePublic = false
   t.equals(ps.groupUris(excludePublic).length, 2)
   t.end()
 })
+

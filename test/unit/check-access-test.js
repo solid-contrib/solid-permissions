@@ -113,9 +113,6 @@ test('PermissionSet checkAccess() with remote Group Listings', t => {
   let groupListingSource = require('../resources/group-listing-ttl')
   let listingUri = 'https://alice.example.com/work-groups'
   let groupUri = listingUri + '#Accounting'
-  // let fetchGraph = () => {
-  //   return parseGraph(rdf, listingUri, groupListingSource)
-  // }
   let fetchGraph = sinon.stub()
     .returns(parseGraph(rdf, listingUri, groupListingSource))
   let options = { fetchGraph }
@@ -127,18 +124,11 @@ test('PermissionSet checkAccess() with remote Group Listings', t => {
   parseGraph(rdf, aclUrl, groupAclSource)
     .then(graph => {
       ps.initFromGraph(graph)
-      return ps.checkAccess(resourceUrl, bob, acl.WRITE)
+      return ps.checkAccess(resourceUrl, bob, acl.WRITE, options)
     })
     .then(hasAccess => {
-      t.notOk(hasAccess, 'Bob should not have access before groups loaded')
-      return ps.loadGroups(options)
-    })
-    .then(ps => {
-      t.ok(fetchGraph.calledWith(groupUri, options))
       // External group listings have now been loaded/resolved
-      return ps.checkAccess(resourceUrl, bob, acl.WRITE)
-    })
-    .then(hasAccess => {
+      t.ok(fetchGraph.calledWith(groupUri, options))
       t.ok(hasAccess, 'Bob should have access as member of group')
       t.end()
     })

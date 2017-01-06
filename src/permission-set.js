@@ -76,7 +76,23 @@ class PermissionSet {
      */
     this.host = options.host
     /**
-     * Initialize the agents / groups / resources indexes.
+     * Initialize the agents / groups indexes.
+     * For each index type (`agents`, `groups`), authorizations are indexed
+     * first by `agentId`, then by access type (direct or inherited), and
+     * lastly by resource. For example:
+     *
+     *   ```
+     *   agents: {
+     *     'https://alice.com/#i': {
+     *       accessTo: {
+     *         'https://alice.com/file1': authorization1
+     *       },
+     *       default: {
+     *         'https://alice.com/': authorization2
+     *       }
+     *     }
+     *   }
+     *   ```
      * @property authsBy
      * @type {Object}
      */
@@ -370,28 +386,35 @@ class PermissionSet {
    * This is one of the main use cases for this solid-permissions library.
    * Optionally performs strict origin checking (if `strictOrigin` is enabled
    * in the constructor's options).
-   * Returns a promise; async since checking permissions may involve requesting
-   * multiple ACL resources (group listings, etc).
    * @method checkAccess
    * @param resourceUrl {String}
    * @param agentId {String}
    * @param accessMode {String} Access mode (read/write/control)
+   * @param [options={}] {Object} Passed through to `loadGroups()`.
+   * @param [options.fetchGraph] {Function} Injected, returns a parsed graph of
+   *   a remote document (group listing). Required.
+   * @param [options.rdf] {RDF} RDF library
    * @throws {Error}
    * @return {Promise<Boolean>}
    */
-  checkAccess (resourceUrl, agentId, accessMode) {
-    let result = false
+  checkAccess (resourceUrl, agentId, accessMode, options = {}) {
     // First, check to see if there is public access for this mode
     if (this.allowsPublic(accessMode, resourceUrl)) {
       return Promise.resolve(true)
     }
-
     // Next, see if there is an individual authorization (for a user or a group)
-    result = this.checkAccessForAgent(resourceUrl, agentId, accessMode)
-    if (result) { return Promise.resolve(result) }
-
-    // Failing that, a group authorization to which this agent belongs
-    return this.checkGroupAccess(resourceUrl, agentId, accessMode)
+    if (this.checkAccessForAgent(resourceUrl, agentId, accessMode)) {
+      return Promise.resolve(true)
+    }
+    // If there are no group authorizations, no need to proceed
+    if (!this.hasGroups()) {
+      return Promise.resolve(false)
+    }
+    // Lastly, load the remote group listings, and check for group auth
+    return this.loadGroups(options)
+      .then(() => {
+        return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
+      })
   }
 
   /**
@@ -408,13 +431,15 @@ class PermissionSet {
   }
 
   /**
-   * @param resourceUrl {String}
-   * @param agentId {String}
-   * @param accessMode {String} Access mode (read/write/control)
+   * @param resourceUrl {string}
+   * @param agentId {string}
+   * @param accessMode {string} Access mode (read/write/control)
+   * @param [options={}] {Object}
+   * @param [options.fetchDocument] {Function}
    * @throws {Error}
-   * @return {Promise<Boolean>}
+   * @return {boolean}
    */
-  checkGroupAccess (resourceUrl, agentId, accessMode) {
+  checkGroupAccess (resourceUrl, agentId, accessMode, options = {}) {
     let result = false
     let membershipMatches = this.groupsForMember(agentId)
     membershipMatches.forEach(groupWebId => {
@@ -422,7 +447,7 @@ class PermissionSet {
         result = true
       }
     })
-    return Promise.resolve(result)
+    return result
   }
 
   /**
@@ -620,7 +645,7 @@ class PermissionSet {
    * Returns a list of URIs of group authorizations in this permission set
    * (those added via addGroupPermission(), etc).
    * @param [excludePublic=true] {Boolean} Should agentClass Agent be excluded?
-   * @returns {Array<string>}
+   * @return {Array<string>}
    */
   groupUris (excludePublic = true) {
     let groupIndex = this.authsBy.groups
@@ -629,6 +654,14 @@ class PermissionSet {
       uris = uris.filter((uri) => { return uri !== acl.EVERYONE })
     }
     return uris
+  }
+
+  /**
+   * Tests whether this permission set has any `acl:agentGroup` authorizations
+   * @return {Boolean}
+   */
+  hasGroups () {
+    return this.groupUris().length > 0
   }
 
   /**
@@ -741,7 +774,7 @@ class PermissionSet {
       return Promise.reject(new Error('Cannot load groups, fetchGraph() not supplied'))
     }
     if (!rdf) {
-      return Promise.reject(new Error('Cannot load groups, rdf librar not supplied'))
+      return Promise.reject(new Error('Cannot load groups, rdf library not supplied'))
     }
     let uris = this.groupUris()
     let loadActions = uris.map(uri => {
