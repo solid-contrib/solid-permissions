@@ -200,7 +200,7 @@ class PermissionSet {
    * @param [accessModes=[]] {string|NamedNode|Array} 'READ'/'WRITE' etc.
    * @param [origins=[]] {Array<String>} List of origins that are allowed access
    * @param [mailTos=[]] {Array<String>}
-   * @return {Authorization}
+   * @return {PermissionSet} Returns self, chainable
    */
   addAuthorizationFor (resourceUrl, inherit, agent, accessModes = [],
                        origins = [], mailTos = []) {
@@ -216,7 +216,7 @@ class PermissionSet {
       auth.addMailTo(mailTo)
     })
     this.addAuthorization(auth)
-    return auth
+    return this
   }
 
   /**
