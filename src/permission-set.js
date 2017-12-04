@@ -378,15 +378,14 @@ class PermissionSet {
    * @return {Promise<Boolean>}
    */
   checkAccess (resourceUrl, agentId, accessMode) {
-    let result, auth
-    resourceUrl || this.resourceUrl
+    resourceUrl = resourceUrl || this.resourceUrl
 
     let publicAuth = this.findAuthByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
-    if (publicAuth && publicAuth.allowsMode(mode)) {
+    if (publicAuth && publicAuth.allowsMode(accessMode)) {
       return Promise.resolve(true) // Public => all you need to know
     }
 
-    if (!agentId){
+    if (!agentId) {
       return Promise.resolve(false) // If not public need id
     }
 
@@ -395,21 +394,19 @@ class PermissionSet {
     if (this.strictOrigin &&  // Enforcement turned off in server config
       this.origin &&  // No origin - not a script, do not enforce origin
       this.origin !== this.host) {  // same origin is trusted
-      auth = this.findAuthByAgent(this.origin, resourceUrl, ORIGIN_INDEX)
+      auth = this.findAuthByAgent(this.origin, resourceUrl, ORIGINS_INDEX)
       if (!(auth && auth.allowsMode(accessMode))) {
         console.log('Authentication fail: Origin ' + this.origin + ' cannot access ' + resourceUrl)
         return Promise.resolve(false) // Origin not allowed => fail @@ Need return explantory message
       }
     }
-    // If not same origin, check that the origin is in the explicit ACL list
-    return authorization.allowsOrigin(this.origin)
 
-    auth = this.findAuthByAgent(agentId, resourceUrl)
+    let auth = this.findAuthByAgent(agentId, resourceUrl)
     if (auth && auth.allowsMode(accessMode)) {
       return Promise.resolve(true) // Authorized explicitly
     }
 
-    auth = this.findAuthByAgent((acl.ANYONE_AUTHENTICATED, resourceUrl)
+    auth = this.findAuthByAgent(acl.ANYONE_AUTHENTICATED, resourceUrl)
     if (auth && auth.allowsMode(accessMode)) {
       return Promise.resolve(true) // Any Authorized
     }
