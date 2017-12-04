@@ -12,6 +12,7 @@ const WRITE = ns.acl('Write')
 const APPEND = ns.acl('Append')
 const CONTROL = ns.acl('Control')
 const EVERYONE = ns.foaf('Agent')
+const ANYONE_AUTHENTICATED = ns.acl('AuthenticatedAgent')
 const ALL_MODES = [ READ, WRITE, CONTROL ]
 
 // ACL-related convenience constants
@@ -27,6 +28,7 @@ module.exports.acl = {
   APPEND,
   CONTROL,
   EVERYONE,
+  ANYONE_AUTHENTICATED,
   INHERIT,
   NOT_INHERIT,
   ACCESS_TO,

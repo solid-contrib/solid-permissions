@@ -33,6 +33,7 @@ const CONTAINER = 'container'
  */
 const AGENT_INDEX = 'agents'
 const GROUP_INDEX = 'groups'
+const ORIGINS_INDEX = 'origins'
 
 /**
  * @class PermissionSet
@@ -332,7 +333,8 @@ class PermissionSet {
   /**
    * Tests whether this PermissionSet gives Public (acl:agentClass foaf:Agent)
    * access to a given uri.
-   * @method allowsPublic
+   * @method
+
    * @param mode {String|NamedNode} Access mode (read/write/control etc)
    * @param resourceUrl {String}
    * @return {Boolean}
@@ -376,14 +378,44 @@ class PermissionSet {
    * @return {Promise<Boolean>}
    */
   checkAccess (resourceUrl, agentId, accessMode) {
-    let result
-    if (this.allowsPublic(accessMode, resourceUrl)) {
-      result = true
-    } else {
-      let auth = this.findAuthByAgent(agentId, resourceUrl)
-      result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+    let result, auth
+    resourceUrl || this.resourceUrl
+
+    let publicAuth = this.findAuthByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
+    if (publicAuth && publicAuth.allowsMode(mode)) {
+      return Promise.resolve(true) // Public => all you need to know
     }
-    return Promise.resolve(result)
+
+    if (!agentId){
+      return Promise.resolve(false) // If not public need id
+    }
+
+    // At this point, We also need to check any Origin involved is allowed too
+
+    if (this.strictOrigin &&  // Enforcement turned off in server config
+      this.origin &&  // No origin - not a script, do not enforce origin
+      this.origin !== this.host) {  // same origin is trusted
+      auth = this.findAuthByAgent(this.origin, resourceUrl, ORIGIN_INDEX)
+      if (!(auth && auth.allowsMode(accessMode))) {
+        console.log('Authentication fail: Origin ' + this.origin + ' cannot access ' + resourceUrl)
+        return Promise.resolve(false) // Origin not allowed => fail @@ Need return explantory message
+      }
+    }
+    // If not same origin, check that the origin is in the explicit ACL list
+    return authorization.allowsOrigin(this.origin)
+
+    auth = this.findAuthByAgent(agentId, resourceUrl)
+    if (auth && auth.allowsMode(accessMode)) {
+      return Promise.resolve(true) // Authorized explicitly
+    }
+
+    auth = this.findAuthByAgent((acl.ANYONE_AUTHENTICATED, resourceUrl)
+    if (auth && auth.allowsMode(accessMode)) {
+      return Promise.resolve(true) // Any Authorized
+    }
+    // At this point check group access if any
+
+    return Promise.resolve(false)
   }
 
   /**
