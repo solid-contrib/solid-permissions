@@ -4,7 +4,6 @@ node_js:
 before_script:
   - export PATH=./node_modules/.bin:$PATH
 script:
-  - npm run lint
   - npm test
   - npm run coverage:check
 after_success:

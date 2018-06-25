@@ -18,7 +18,7 @@
     "tape": "tape test/unit/*.js",
     "test": "npm run standard && npm run tape",
     "coverage:check": "nyc check-coverage --lines 92",
-    "coverage:report": "nyc report --repoprter=text-lcov --reporter=html",
+    "coverage:report": "nyc report --reporter=text-lcov --reporter=html",
     "coverage:coveralls": "nyc report --reporter=text-lcov | coveralls"
   },
   "repository": {
@@ -60,5 +60,12 @@
   },
   "standard": {
     "globals": []
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.js"
+    ],
+    "sourceMap": false,
+    "instrument": false
   }
 }
