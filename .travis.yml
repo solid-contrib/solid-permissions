@@ -1,5 +1,11 @@
 language: node_js
 node_js:
   - "6.0"
+before_script:
+  - export PATH=./node_modules/.bin:$PATH
+script:
+  - npm run lint
+  - npm test
+  - npm run coverage:check
 after_success:
   - npm run coverage:coveralls
