@@ -19,8 +19,7 @@
     "test": "npm run standard && npm run tape",
     "coverage:check": "nyc check-coverage --lines 92",
     "coverage:report": "nyc report --reporter=text-lcov --reporter=html",
-    "test": "nodeunit test",
-    "coveralls": "jscoverage lib && nodeunit --reporter=lcov test | coveralls"
+    "coveralls": "nyc npm test && nyc report --reporter=text-lcov | coveralls"
   },
   "repository": {
     "type": "git",
@@ -46,15 +45,13 @@
   },
   "homepage": "https://github.com/solid/solid-permissions",
   "dependencies": {
+    "coveralls": "^3.0.1",
     "nyc": "^12.0.2",
     "solid-namespace": "0.1.0"
   },
   "devDependencies": {
     "babel-cli": "^6.14.0",
     "babel-preset-es2015": "^6.14.0",
-    "coveralls": "^3.0.1",
-    "jscoverage": "^0.6.0",
-    "nodeunit": "^0.11.2",
     "rdflib": "^0.12.1",
     "sinon": "^1.17.6",
     "solid-web-client": "0.0.9",
