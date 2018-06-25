@@ -17,6 +17,9 @@
     "standard": "standard *.js src/*.js",
     "tape": "tape test/unit/*.js",
     "test": "npm run standard && npm run tape"
+    "coverage:check": "nyc check-coverage --lines 92",
+    "coverage:report": "nyc report --repoprter=text-lcov --reporter=html",
+    "coverage:coveralls": "nyc report --reporter=text-lcov | coveralls",
   },
   "repository": {
     "type": "git",
@@ -42,6 +45,8 @@
   },
   "homepage": "https://github.com/solid/solid-permissions",
   "dependencies": {
+    "coveralls": "^3.0.1",
+    "nyc": "^12.0.2",
     "solid-namespace": "0.1.0"
   },
   "devDependencies": {
