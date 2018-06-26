@@ -30,8 +30,9 @@ class GroupListing {
   }
 
   /**
-   * Factory function, returns a group listing, loaded and initialized with the
-   * graph from its uri.
+   * Factory function, returns a group listing, loaded and initialized
+   * with the graph from its uri. Will return null if parsing fails,
+   * which can be used to deny access to the resource.
    * @static
    * @param uri {string}
    * @param fetchGraph {Function}
@@ -47,7 +48,7 @@ class GroupListing {
       })
       .catch(err => {
         console.error(err)
-        return null
+        return null // Returning null will result in deny, which is suitable in this case 
       })
   }
 
