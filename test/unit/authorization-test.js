@@ -200,14 +200,14 @@ test('Authorization origins test', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 1', t => {
+test('Comparing newly constructed Authorizations', t => {
   let auth1 = new Authorization()
   let auth2 = new Authorization()
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations test 2', t => {
+test('Comparing Authorizations, for a resource', t => {
   let auth1 = new Authorization(resourceUrl)
   let auth2 = new Authorization()
   t.notOk(auth1.equals(auth2))
@@ -216,7 +216,7 @@ test('Comparing Authorizations test 2', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 3', t => {
+test('Comparing Authorizations setting Agent', t => {
   let auth1 = new Authorization()
   auth1.setAgent(agentWebId)
   let auth2 = new Authorization()
@@ -226,7 +226,7 @@ test('Comparing Authorizations test 3', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 4', t => {
+test('Comparing Authorizations with same permissions', t => {
   let auth1 = new Authorization()
   auth1.addMode([acl.READ, acl.WRITE])
   let auth2 = new Authorization()
@@ -236,7 +236,7 @@ test('Comparing Authorizations test 4', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 5', t => {
+test('Comparing Authorizations with resource, also permission', t => {
   let auth1 = new Authorization(resourceUrl, acl.INHERIT)
   let auth2 = new Authorization(resourceUrl)
   t.notOk(auth1.equals(auth2))
@@ -245,7 +245,7 @@ test('Comparing Authorizations test 5', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 6', t => {
+test('Comparing Authorizations with email', t => {
   let auth1 = new Authorization()
   auth1.addMailTo('alice@example.com')
   let auth2 = new Authorization()
@@ -255,7 +255,7 @@ test('Comparing Authorizations test 6', t => {
   t.end()
 })
 
-test('Comparing Authorizations test 7', t => {
+test('Comparing Authorizations with origin', t => {
   let origin = 'https://example.com/'
   let auth1 = new Authorization()
   auth1.addOrigin(origin)
