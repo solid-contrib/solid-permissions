@@ -12,7 +12,7 @@ class GroupListing {
    * @param [options.uri] {string|NamedNode} Group URI as appears in ACL file
    *   (e.g. `https://example.com/groups#management`)
    * @param [options.uid] {string} Value of `vcard:hasUID` object
-   * @param [options.members={}] {Object} Hashmap of group members, by webId
+   * @param [options.members={}] {Set} Set of group members, by webId
    * @param [options.listing] {string|NamedNode} Group listing document URI
    * @param [options.rdf] {RDF} RDF library
    * @param [options.graph] {Graph} Parsed graph of the group listing document
@@ -20,7 +20,7 @@ class GroupListing {
   constructor (options = {}) {
     this.uri = options.uri
     this.uid = options.uid
-    this.members = options.members || {}
+    this.members = options.members || new Set()
     this.listing = options.listing
     this.rdf = options.rdf
     this.graph = options.graph
@@ -62,7 +62,7 @@ class GroupListing {
     if (webId.value) {
       webId = webId.value
     }
-    this.members[webId] = true
+    this.members.add(webId)
     return this
   }
 
@@ -71,7 +71,7 @@ class GroupListing {
    * @return {Number}
    */
   get count () {
-    return Object.keys(this.members).length
+    return this.members.size
   }
 
   /**
@@ -83,7 +83,7 @@ class GroupListing {
     if (webId.value) {
       webId = webId.value
     }
-    return this.members[webId]
+    return this.members.has(webId)
   }
 
   /**
