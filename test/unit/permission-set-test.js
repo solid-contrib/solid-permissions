@@ -263,6 +263,22 @@ test('PermissionSet allowsPublic() test', function (t) {
   t.end()
 })
 
+test('allowsPublic() should ignore origin checking', function (t) {
+  let origin = 'https://example.com'
+  let options = { graph: parsedAclGraph, rdf, origin, strictOrigin: true }
+  var ps = new PermissionSet(containerUrl, containerAclUrl,
+    PermissionSet.CONTAINER, options)
+  let otherUrl = 'https://alice.example.com/profile/card'
+  t.ok(ps.allowsPublic(acl.READ, otherUrl))
+
+  ps.checkAccess(otherUrl, 'https://alice.example.com', acl.READ)
+    .then(hasAccess => {
+      t.ok(hasAccess)
+      t.end()
+    })
+})
+
+
 test('PermissionSet init from untyped ACL test', function (t) {
   let rawAclSource = require('../resources/untyped-acl-ttl')
   let resourceUrl = 'https://alice.example.com/docs/file1'

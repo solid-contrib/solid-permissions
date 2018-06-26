@@ -362,7 +362,7 @@ class PermissionSet {
     if (!publicAuth) {
       return false
     }
-    return this.checkOrigin(publicAuth) && publicAuth.allowsMode(mode)
+    return publicAuth.allowsMode(mode)
   }
 
   /**
