@@ -442,7 +442,7 @@ class PermissionSet {
   checkGroupAccess (resourceUrl, agentId, accessMode, options = {}) {
     let result = false
     let membershipMatches = this.groupsForMember(agentId)
-    membershipMatches.forEach(groupWebId => {
+    membershipMatches.find(groupWebId => {
       if (this.checkAccessForAgent(resourceUrl, groupWebId, accessMode)) {
         result = true
       }
