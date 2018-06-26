@@ -1,7 +1,7 @@
 const vocab = require('solid-namespace')
 
 /**
- * Ad Hoc ACL Group Listing
+ * ACL Group Listing
  * @see https://github.com/solid/web-access-control-spec#groups-of-agents
  * @class GroupListing
  */
