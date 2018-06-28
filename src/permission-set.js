@@ -20,6 +20,7 @@ const Authorization = require('./authorization')
 const GroupListing = require('./group-listing')
 const { acl } = require('./modes')
 const vocab = require('solid-namespace')
+const debug = require('debug')('solid:permissions')
 
 const DEFAULT_ACL_SUFFIX = '.acl'
 const DEFAULT_CONTENT_TYPE = 'text/turtle'
@@ -398,19 +399,25 @@ class PermissionSet {
    * @return {Promise<Boolean>}
    */
   checkAccess (resourceUrl, agentId, accessMode, options = {}) {
+    debug('Checking access for agent ' + agentId)
     // First, check to see if there is public access for this mode
     if (this.allowsPublic(accessMode, resourceUrl)) {
+      debug('Public access allowed for ' + resourceUrl)
       return Promise.resolve(true)
     }
     // Next, see if there is an individual authorization (for a user or a group)
     if (this.checkAccessForAgent(resourceUrl, agentId, accessMode)) {
+      debug('Individual access granted for ' + resourceUrl)
       return Promise.resolve(true)
     }
     // If there are no group authorizations, no need to proceed
     if (!this.hasGroups()) {
+      debug('No groups authorizations exist')
       return Promise.resolve(false)
     }
-    // Lastly, load the remote group listings, and check for group auth
+      // Lastly, load the remote group listings, and check for group auth
+    debug('Check groups authorizations')
+
     return this.loadGroups(options)
       .then(() => {
         return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
@@ -443,7 +450,9 @@ class PermissionSet {
     let result = false
     let membershipMatches = this.groupsForMember(agentId)
     membershipMatches.find(groupWebId => {
+      debug('Looking for access rights for ' + groupWebId)
       if (this.checkAccessForAgent(resourceUrl, groupWebId, accessMode)) {
+        debug('Groups access granted for ' + resourceUrl)
         result = true
       }
     })
@@ -769,6 +778,7 @@ class PermissionSet {
    */
   loadGroups (options = {}) {
     let fetchGraph = options.fetchGraph
+    debug('Fetching with ' + fetchGraph)
     let rdf = options.rdf || this.rdf
     if (!fetchGraph) {
       return Promise.reject(new Error('Cannot load groups, fetchGraph() not supplied'))

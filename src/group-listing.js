@@ -1,4 +1,5 @@
 const vocab = require('solid-namespace')
+const debug = require('debug')('solid:permissions')
 
 /**
  * ACL Group Listing
@@ -41,6 +42,7 @@ class GroupListing {
    * @return {Promise<GroupListing>}
    */
   static loadFrom (uri, fetchGraph, rdf, options = {}) {
+    debug('Trying to find a Group Listing in ' + uri)
     let group = new GroupListing({ uri, rdf })
     return fetchGraph(uri, options)
       .then(graph => {
