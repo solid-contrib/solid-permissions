@@ -14,8 +14,8 @@
     "preversion": "npm test",
     "postversion": "git push --follow-tags",
     "prepublish": "npm test && npm run build",
-    "standard": "standard *.js src/*.js",
-    "tape": "tape test/unit/*.js",
+    "standard": "standard src/ test/",
+    "tape": "tape test/**/*.js",
     "test": "npm run standard && npm run tape"
   },
   "repository": {
