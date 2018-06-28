@@ -206,7 +206,7 @@ class Authorization {
     // Normalize the access mode
     accessMode = acl[accessMode.toUpperCase()] || accessMode
     if (accessMode === acl.APPEND) {
-      return this.allowsAppend()  // Handle the Append special case
+      return this.allowsAppend() // Handle the Append special case
     }
     return this.accessModes[accessMode]
   }
@@ -407,7 +407,7 @@ class Authorization {
   rdfStatements (rdf) {
     // Make sure the authorization has at least one agent/group and `accessTo`
     if (!this.webId() || !this.resourceUrl) {
-      return []  // This Authorization is invalid, return empty array
+      return [] // This Authorization is invalid, return empty array
     }
     // Virtual / implied authorizations are not serialized
     if (this.virtual) {
@@ -598,7 +598,7 @@ class Authorization {
  * @return {String}
  */
 function hashFragmentFor (webId, resourceUrl,
-                          authType = acl.ACCESS_TO) {
+  authType = acl.ACCESS_TO) {
   let hashKey = webId + '-' + resourceUrl + '-' + authType
   return hashKey
 }

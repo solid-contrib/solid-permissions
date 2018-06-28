@@ -2,7 +2,7 @@
 
 const test = require('tape')
 const SolidResponse = require('solid-web-client/lib/models/response')
-const acls = require('../../src/index')  // solid-permissions module
+const acls = require('../../src/index') // solid-permissions module
 const resourceUrl = 'https://example.com/resource1'
 const sinon = require('sinon')
 const deleteSpy = sinon.spy()

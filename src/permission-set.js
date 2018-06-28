@@ -98,8 +98,8 @@ class PermissionSet {
      * @type {Object}
      */
     this.authsBy = {
-      'agents': {},  // Auths by agent webId
-      'groups': {}  // Auths by group webId (also includes Public / EVERYONE)
+      'agents': {}, // Auths by agent webId
+      'groups': {} // Auths by group webId (also includes Public / EVERYONE)
     }
     /**
      * Cache of GroupListing objects, by group webId. Populated by `loadGroups()`.
@@ -204,7 +204,7 @@ class PermissionSet {
    * @return {PermissionSet} Returns self, chainable
    */
   addAuthorizationFor (resourceUrl, inherit, agent, accessModes = [],
-                       origins = [], mailTos = []) {
+    origins = [], mailTos = []) {
     let auth = new Authorization(resourceUrl, inherit)
     if (agent instanceof GroupListing) {
       auth.setGroup(agent.listing)
@@ -415,7 +415,7 @@ class PermissionSet {
       debug('No groups authorizations exist')
       return Promise.resolve(false)
     }
-      // Lastly, load the remote group listings, and check for group auth
+    // Lastly, load the remote group listings, and check for group auth
     debug('Check groups authorizations')
 
     return this.loadGroups(options)
@@ -467,9 +467,9 @@ class PermissionSet {
    * @return {Boolean}
    */
   checkOrigin (authorization) {
-    if (!this.strictOrigin ||  // Enforcement turned off in server config
-        !this.origin ||  // No origin - not a script, do not enforce origin
-        this.origin === this.host) {  // same origin is trusted
+    if (!this.strictOrigin || // Enforcement turned off in server config
+        !this.origin || // No origin - not a script, do not enforce origin
+        this.origin === this.host) { // same origin is trusted
       return true
     }
     // If not same origin, check that the origin is in the explicit ACL list
@@ -928,7 +928,7 @@ class PermissionSet {
  */
 function defaultAclUrlFor (resourceUri) {
   if (defaultIsAcl(resourceUri)) {
-    return resourceUri  // .acl resources are their own ACLs
+    return resourceUri // .acl resources are their own ACLs
   } else {
     return resourceUri + DEFAULT_ACL_SUFFIX
   }

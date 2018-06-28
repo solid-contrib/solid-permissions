@@ -5,7 +5,7 @@ const rdf = require('rdflib')
 const PermissionSet = require('../../src/permission-set')
 const SolidResponse = require('solid-web-client/lib/models/response')
 
-const acls = require('../../src/index')  // solid-permissions module
+const acls = require('../../src/index') // solid-permissions module
 
 const resourceUrl = 'https://example.com/resource1'
 const webId = 'https://example.com/#me'

@@ -60,7 +60,7 @@ test('PermissionSet can add and remove agent authorizations', function (t) {
   let origin = 'https://example.com/'
   // Notice that addPermission() is chainable:
   ps
-    .addPermission(bobWebId, acl.READ, origin)  // only allow read from origin
+    .addPermission(bobWebId, acl.READ, origin) // only allow read from origin
     .addPermission(aliceWebId, [acl.READ, acl.WRITE])
   t.notOk(ps.isEmpty())
   t.equal(ps.count, 2)
@@ -228,7 +228,6 @@ test('PermissionSet equals test 4', function (t) {
 test('PermissionSet serialized & deserialized round trip test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
     PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf })
-  let auth = ps.permissionFor(aliceWebId)
   // console.log(ps.serialize())
   t.ok(ps.equals(ps), 'A PermissionSet should equal itself')
   // Now check to make sure serialize() & reparse results in the same set
@@ -277,7 +276,6 @@ test('allowsPublic() should ignore origin checking', function (t) {
       t.end()
     })
 })
-
 
 test('PermissionSet init from untyped ACL test', function (t) {
   let rawAclSource = require('../resources/untyped-acl-ttl')
@@ -365,7 +363,6 @@ test('PermissionSet save() no aclUrl test', t => {
 })
 
 test('PermissionSet save() no web client test', t => {
-  let nullAclUrl
   let ps = new PermissionSet(resourceUrl, aclUrl, false,
     { rdf, graph: parsedAclGraph })
   ps.save()
@@ -417,4 +414,3 @@ test('PermissionSet groupUris() test', t => {
   t.equals(ps.groupUris(excludePublic).length, 2)
   t.end()
 })
-

@@ -1,5 +1,4 @@
 'use strict'
-const rdf = require('rdflib')
 
 function parseGraph (rdf, baseUrl, rdfSource, contentType = 'text/turtle') {
   let graph = rdf.graph()
