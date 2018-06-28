@@ -5,9 +5,10 @@
     "node": "^8.10"
   },
   "description": "Web Access Control based permissions library",
-  "main": "./lib/index",
+  "main": "./src/index",
   "files": [
-    "lib"
+    "lib",
+    "src"
   ],
   "scripts": {
     "build": "babel src -d lib",

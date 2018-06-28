@@ -39,7 +39,7 @@ class GroupListing {
    * @param fetchGraph {Function}
    * @param rdf {RDF}
    * @param options {Object} Options hashmap, passed through to fetchGraph()
-   * @return {Promise<GroupListing>}
+   * @return {Promise<GroupListing|null>}
    */
   static loadFrom (uri, fetchGraph, rdf, options = {}) {
     debug('Trying to find a Group Listing in ' + uri)
