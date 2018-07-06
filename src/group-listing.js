@@ -111,6 +111,7 @@ class GroupListing {
       console.warn(`Possibly invalid group '${uri}', missing type vcard:Group`)
     }
     this.uid = graph.anyValue(group, ns.vcard('hasUID'))
+    debug('Found Group Listing with ' + group)
     graph.match(group, ns.vcard('hasMember'))
       .forEach(memberMatch => {
         this.addMember(memberMatch.object)
