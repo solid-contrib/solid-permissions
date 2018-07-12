@@ -48,11 +48,6 @@ class GroupListing {
       .then(graph => {
         return group.initFromGraph(uri, graph)
       })
-      .catch(err => {
-        // Returning null will result in deny, which is suitable in this case
-        console.error(err)
-        return null
-      })
   }
 
   /**
