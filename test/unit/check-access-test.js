@@ -1,7 +1,10 @@
 'use strict'
 
 const test = require('tape')
+const sinon = require('sinon')
 const Authorization = require('../../src/authorization')
+const rdf = require('rdflib')
+const { parseGraph } = require('./utils')
 const { acl } = require('../../src/modes')
 const PermissionSet = require('../../src/permission-set')
 const aliceWebId = 'https://alice.example.com/#me'
@@ -14,11 +17,11 @@ test('PermissionSet checkAccess() test - Append access', t => {
   ps.checkAccess(resourceUrl, aliceWebId, acl.APPEND)
     .then(result => {
       t.ok(result, 'Alice should have Append access implied by Write access')
+      t.end()
     })
     .catch(err => {
       t.fail(err)
     })
-  t.end()
 })
 
 test('PermissionSet checkAccess() test - accessTo', function (t) {
@@ -30,20 +33,16 @@ test('PermissionSet checkAccess() test - accessTo', function (t) {
   ps.checkAccess(containerUrl, aliceWebId, acl.WRITE)
     .then(result => {
       t.ok(result, 'Alice should have write access to container')
+      return ps.checkAccess(containerUrl, 'https://someone.else.com/', acl.WRITE)
     })
-    .catch(err => {
-      console.log(err)
-      t.fail(err)
-    })
-  ps.checkAccess(containerUrl, 'https://someone.else.com/', acl.WRITE)
     .then(result => {
       t.notOk(result, 'Another user should have no write access')
+      t.end()
     })
     .catch(err => {
       console.log(err)
       t.fail(err)
     })
-  t.end()
 })
 
 test('PermissionSet checkAccess() test - default/inherited', function (t) {
@@ -58,21 +57,17 @@ test('PermissionSet checkAccess() test - default/inherited', function (t) {
   ps.checkAccess(resourceUrl, aliceWebId, acl.READ)
     .then(result => {
       t.ok(result, 'Alice should have inherited read access to file')
+      let randomUser = 'https://someone.else.com/'
+      return ps.checkAccess(resourceUrl, randomUser, acl.READ)
     })
-    .catch(err => {
-      console.log(err)
-      t.fail(err)
-    })
-  let randomUser = 'https://someone.else.com/'
-  ps.checkAccess(resourceUrl, randomUser, acl.READ)
     .then(result => {
       t.notOk(result, 'Another user should not have inherited access to file')
+      t.end()
     })
     .catch(err => {
       console.log(err)
       t.fail(err)
     })
-  t.end()
 })
 
 test('PermissionSet checkAccess() test - public access', function (t) {
@@ -92,25 +87,53 @@ test('PermissionSet checkAccess() test - public access', function (t) {
   ps.checkAccess(resourceUrl, randomUser, acl.READ)
     .then(result => {
       t.ok(result, 'Everyone should have inherited read access to file')
+      // Reset the permission set, test a non-default permission
+      ps = new PermissionSet()
+      let auth2 = new Authorization(resourceUrl, !inherit)
+      auth2.setPublic()
+      auth2.addMode(acl.READ)
+      ps.addAuthorization(auth2)
+      return ps.checkAccess(resourceUrl, randomUser, acl.READ)
     })
-    .catch(err => {
-      console.log(err)
-      t.fail(err)
-    })
-  // Reset the permission set, test a non-default permission
-  ps = new PermissionSet()
-  let auth2 = new Authorization(resourceUrl, !inherit)
-  auth2.setPublic()
-  auth2.addMode(acl.READ)
-  ps.addAuthorization(auth2)
-  ps.checkAccess(resourceUrl, randomUser, acl.READ)
     .then(result => {
       t.ok(result, 'Everyone should have non-inherited read access to file')
+      t.end()
     })
     .catch(err => {
       console.log(err)
       t.fail(err)
     })
+})
 
-  t.end()
+test('PermissionSet checkAccess() with remote Group Listings', t => {
+  let groupAclSource = require('../resources/acl-with-group-ttl')
+  let resourceUrl = 'https://alice.example.com/docs/file2.ttl'
+  let aclUrl = 'https://alice.example.com/docs/file2.ttl.acl'
+
+  let groupListingSource = require('../resources/group-listing-ttl')
+  let listingUri = 'https://alice.example.com/work-groups'
+  let groupUri = listingUri + '#Accounting'
+  let fetchGraph = sinon.stub()
+    .returns(parseGraph(rdf, listingUri, groupListingSource))
+  let options = { fetchGraph }
+
+  let bob = 'https://bob.example.com/profile/card#me'
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer, { rdf })
+
+  parseGraph(rdf, aclUrl, groupAclSource)
+    .then(graph => {
+      ps.initFromGraph(graph)
+      return ps.checkAccess(resourceUrl, bob, acl.WRITE, options)
+    })
+    .then(hasAccess => {
+      // External group listings have now been loaded/resolved
+      t.ok(fetchGraph.calledWith(groupUri, options))
+      t.ok(hasAccess, 'Bob should have access as member of group')
+      t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail(err)
+    })
 })

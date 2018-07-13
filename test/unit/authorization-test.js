@@ -1,8 +1,9 @@
 'use strict'
 
-var test = require('tape')
-// var rdf = require('rdflib')
-var Authorization = require('../../src/authorization')
+const test = require('tape')
+const rdf = require('rdflib')
+const ns = require('solid-namespace')(rdf)
+const Authorization = require('../../src/authorization')
 const { acl } = require('../../src/modes')
 
 const resourceUrl = 'https://bob.example.com/docs/file1'
@@ -10,7 +11,7 @@ const agentWebId = 'https://bob.example.com/profile/card#me'
 // Not really sure what group webIDs will look like, not yet implemented:
 const groupWebId = 'https://devteam.example.com/something'
 
-test('a new Authorization()', function (t) {
+test('a new Authorization()', t => {
   let auth = new Authorization()
   t.notOk(auth.isAgent())
   t.notOk(auth.isGroup())
@@ -27,7 +28,7 @@ test('a new Authorization()', function (t) {
   t.end()
 })
 
-test('a new Authorization for a container', function (t) {
+test('a new Authorization for a container', t => {
   let auth = new Authorization(resourceUrl, acl.INHERIT)
   t.equal(auth.resourceUrl, resourceUrl)
   t.notOk(auth.webId())
@@ -41,14 +42,14 @@ test('a new Authorization for a container', function (t) {
   t.end()
 })
 
-test('Authorization allowsMode() test', function (t) {
+test('Authorization allowsMode() test', t => {
   let auth = new Authorization()
   auth.addMode(acl.WRITE)
   t.ok(auth.allowsMode(acl.WRITE), 'auth.allowsMode() should work')
   t.end()
 })
 
-test('an Authorization allows editing permission modes', function (t) {
+test('an Authorization allows editing permission modes', t => {
   let auth = new Authorization()
   auth.addMode(acl.CONTROL)
   t.notOk(auth.isEmpty(), 'Adding an access mode means no longer empty')
@@ -79,7 +80,7 @@ test('an Authorization allows editing permission modes', function (t) {
   t.end()
 })
 
-test('an Authorization can add or remove multiple modes', function (t) {
+test('an Authorization can add or remove multiple modes', t => {
   let auth = new Authorization()
   auth.addMode([acl.READ, acl.WRITE, acl.CONTROL])
   t.ok(auth.allowsRead() && auth.allowsWrite() && auth.allowsControl())
@@ -89,7 +90,7 @@ test('an Authorization can add or remove multiple modes', function (t) {
   t.end()
 })
 
-test('an Authorization can only have either an agent or a group', function (t) {
+test('an Authorization can only have either an agent or a group', t => {
   let auth1 = new Authorization()
   auth1.setAgent(agentWebId)
   t.equal(auth1.agent, agentWebId)
@@ -107,7 +108,7 @@ test('an Authorization can only have either an agent or a group', function (t) {
   t.end()
 })
 
-test('acl.WRITE implies acl.APPEND', function (t) {
+test('acl.WRITE implies acl.APPEND', t => {
   let auth = new Authorization()
   auth.addMode(acl.WRITE)
   t.ok(auth.allowsWrite())
@@ -127,7 +128,7 @@ test('acl.WRITE implies acl.APPEND', function (t) {
   t.end()
 })
 
-test('an Authorization can grant Public access', function (t) {
+test('an Authorization can grant Public access', t => {
   let auth = new Authorization()
   t.notOk(auth.isPublic(), 'An authorization is not public access by default')
 
@@ -150,7 +151,7 @@ test('an Authorization can grant Public access', function (t) {
   t.end()
 })
 
-test('an webId is either the agent or the group id', function (t) {
+test('an webId is either the agent or the group id', t => {
   let auth = new Authorization()
   auth.setAgent(agentWebId)
   t.equal(auth.webId(), auth.agent)
@@ -160,7 +161,7 @@ test('an webId is either the agent or the group id', function (t) {
   t.end()
 })
 
-test('hashFragment() on an incomplete authorization should fail', function (t) {
+test('hashFragment() on an incomplete authorization should fail', t => {
   let auth = new Authorization()
   t.throws(function () {
     auth.hashFragment()
@@ -172,7 +173,7 @@ test('hashFragment() on an incomplete authorization should fail', function (t) {
   t.end()
 })
 
-test('Authorization.isValid() test', function (t) {
+test('Authorization.isValid() test', t => {
   let auth = new Authorization()
   t.notOk(auth.isValid(), 'An empty authorization should not be valid')
   auth.resourceUrl = resourceUrl
@@ -187,7 +188,7 @@ test('Authorization.isValid() test', function (t) {
   t.end()
 })
 
-test('Authorization origins test', function (t) {
+test('Authorization origins test', t => {
   let auth = new Authorization()
   let origin = 'https://example.com/'
   auth.addOrigin(origin)
@@ -199,14 +200,14 @@ test('Authorization origins test', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 1', function (t) {
+test('Comparing newly constructed Authorizations', t => {
   let auth1 = new Authorization()
   let auth2 = new Authorization()
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations test 2', function (t) {
+test('Comparing Authorizations, for a resource', t => {
   let auth1 = new Authorization(resourceUrl)
   let auth2 = new Authorization()
   t.notOk(auth1.equals(auth2))
@@ -215,7 +216,7 @@ test('Comparing Authorizations test 2', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 3', function (t) {
+test('Comparing Authorizations setting Agent', t => {
   let auth1 = new Authorization()
   auth1.setAgent(agentWebId)
   let auth2 = new Authorization()
@@ -225,7 +226,7 @@ test('Comparing Authorizations test 3', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 4', function (t) {
+test('Comparing Authorizations with same permissions', t => {
   let auth1 = new Authorization()
   auth1.addMode([acl.READ, acl.WRITE])
   let auth2 = new Authorization()
@@ -235,7 +236,7 @@ test('Comparing Authorizations test 4', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 5', function (t) {
+test('Comparing Authorizations with resource, also permission', t => {
   let auth1 = new Authorization(resourceUrl, acl.INHERIT)
   let auth2 = new Authorization(resourceUrl)
   t.notOk(auth1.equals(auth2))
@@ -244,7 +245,7 @@ test('Comparing Authorizations test 5', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 6', function (t) {
+test('Comparing Authorizations with email', t => {
   let auth1 = new Authorization()
   auth1.addMailTo('alice@example.com')
   let auth2 = new Authorization()
@@ -254,7 +255,7 @@ test('Comparing Authorizations test 6', function (t) {
   t.end()
 })
 
-test('Comparing Authorizations test 7', function (t) {
+test('Comparing Authorizations with origin', t => {
   let origin = 'https://example.com/'
   let auth1 = new Authorization()
   auth1.addOrigin(origin)
@@ -265,10 +266,25 @@ test('Comparing Authorizations test 7', function (t) {
   t.end()
 })
 
-test('Authorization.clone() test', function (t) {
+test('Authorization.clone() test', t => {
   let auth1 = new Authorization(resourceUrl, acl.INHERIT)
   auth1.addMode([acl.READ, acl.WRITE])
   let auth2 = auth1.clone()
   t.ok(auth1.equals(auth2))
+  t.end()
+})
+
+test('Authorization serialize group test', t => {
+  let auth = new Authorization(resourceUrl)
+  auth.addMode(acl.READ)
+  let groupUrl = 'https://example.com/work-group'
+  auth.setGroup(groupUrl)
+  // Serialize the authorization
+  let triples = auth.rdfStatements(rdf)
+  let groupTriple = triples.find((triple) => {
+    return triple.predicate.equals(ns.acl('agentGroup'))
+  })
+  t.ok(groupTriple, 'Serialized auth should have an agentGroup triple')
+  t.equals(groupTriple.object.value, groupUrl)
   t.end()
 })

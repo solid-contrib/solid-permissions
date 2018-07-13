@@ -5,17 +5,13 @@
  * @module authorization
  */
 
-var vocab = require('solid-namespace')
+const vocab = require('solid-namespace')
 const { acl } = require('./modes')
-
-/**
- * Returns a set of convenience constants, for use with `addPermission()` etc.
- * Exported as `Authorization.acl`.
- */
+const GroupListing = require('./group-listing')
 
 /**
  * Models an individual authorization object, for a single resource and for
- * a single webId (either agent or agentClass). See the comments at the top
+ * a single webId (either agent or group). See the comments at the top
  * of the PermissionSet module for design assumptions.
  * Low-level, not really meant to be instantiated directly. Use
  * `permissionSet.addPermission()` instead.
@@ -25,11 +21,11 @@ class Authorization {
   /**
    * @param resourceUrl {String} URL of the resource (`acl:accessTo`) for which
    *   this authorization is intended.
-   * @param [inherited] {Boolean} Should this authorization be inherited (contain
-   *   `acl:default`). Used for container ACLs. Defaults to null/false.
+   * @param [inherited=false] {Boolean} Should this authorization be inherited (contain
+   *   `acl:default`). Used for container ACLs.
    * @constructor
    */
-  constructor (resourceUrl, inherited) {
+  constructor (resourceUrl, inherited = false) {
     /**
      * Hashmap of all of the access modes (`acl:Write` etc) granted to an agent
      * or group in this authorization. Modified via `addMode()` and `removeMode()`
@@ -54,8 +50,9 @@ class Authorization {
      */
     this.agent = null
     /**
-     * URL of a group resource (`acl:agentClass`). Inside an authorization,
-     * mutually exclusive with the `agent` property. Set via `setGroup()`.
+     * URL of a group resource (`acl:agentGroup` or `acl:agentClass`). Inside an
+     * authorization, mutually exclusive with the `agent` property.
+     * Set via `setGroup()`.
      * @property group
      * @type {String}
      */
@@ -209,7 +206,7 @@ class Authorization {
     // Normalize the access mode
     accessMode = acl[accessMode.toUpperCase()] || accessMode
     if (accessMode === acl.APPEND) {
-      return this.allowsAppend()  // Handle the Append special case
+      return this.allowsAppend() // Handle the Append special case
     }
     return this.accessModes[accessMode]
   }
@@ -283,20 +280,20 @@ class Authorization {
    * @return {Boolean}
    */
   equals (auth) {
-    var sameAgent = this.agent === auth.agent
-    var sameGroup = this.group === auth.group
-    var sameUrl = this.resourceUrl === auth.resourceUrl
-    var myModeKeys = Object.keys(this.accessModes)
-    var authModeKeys = Object.keys(auth.accessModes)
-    var sameNumberModes = myModeKeys.length === authModeKeys.length
-    var sameInherit =
+    let sameAgent = this.agent === auth.agent
+    let sameGroup = this.group === auth.group
+    let sameUrl = this.resourceUrl === auth.resourceUrl
+    let myModeKeys = Object.keys(this.accessModes)
+    let authModeKeys = Object.keys(auth.accessModes)
+    let sameNumberModes = myModeKeys.length === authModeKeys.length
+    let sameInherit =
       JSON.stringify(this.inherited) === JSON.stringify(auth.inherited)
-    var sameModes = true
+    let sameModes = true
     myModeKeys.forEach((key) => {
       if (!auth.accessModes[ key ]) { sameModes = false }
     })
-    var sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(auth.mailTo)
-    var sameOrigins =
+    let sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(auth.mailTo)
+    let sameOrigins =
       JSON.stringify(this.originsAllowed) === JSON.stringify(auth.originsAllowed)
     return sameAgent && sameGroup && sameUrl && sameNumberModes && sameModes &&
       sameInherit && sameMailTos && sameOrigins
@@ -314,7 +311,7 @@ class Authorization {
     if (!this.webId || !this.resourceUrl) {
       throw new Error('Cannot call hashFragment() on an incomplete authorization')
     }
-    var hashFragment = hashFragmentFor(this.webId(), this.resourceUrl,
+    let hashFragment = hashFragmentFor(this.webId(), this.resourceUrl,
       this.accessType)
     return hashFragment
   }
@@ -403,28 +400,29 @@ class Authorization {
    * Returns an array of RDF statements representing this authorization.
    * Used by `PermissionSet.serialize()`.
    * @method rdfStatements
-   * @return {Array<Statement>} List of RDF statements representing this Auth,
+   * @param rdf {RDF} RDF Library
+   * @return {Array<Triple>} List of RDF statements representing this Auth,
    *   or an empty array if this authorization is invalid.
    */
   rdfStatements (rdf) {
     // Make sure the authorization has at least one agent/group and `accessTo`
     if (!this.webId() || !this.resourceUrl) {
-      return []  // This Authorization is invalid, return empty array
+      return [] // This Authorization is invalid, return empty array
     }
     // Virtual / implied authorizations are not serialized
     if (this.virtual) {
       return []
     }
-    var statement
-    var fragment = rdf.namedNode('#' + this.hashFragment())
-    var ns = vocab(rdf)
-    var statements = [
+    let statement
+    let fragment = rdf.namedNode('#' + this.hashFragment())
+    let ns = vocab(rdf)
+    let statements = [
       rdf.triple(
         fragment,
         ns.rdf('type'),
         ns.acl('Authorization'))
     ]
-    if (this.agent) {
+    if (this.isAgent()) {
       statement = rdf.triple(fragment, ns.acl('agent'), rdf.namedNode(this.agent))
       statements.push(statement)
     }
@@ -435,15 +433,17 @@ class Authorization {
         statements.push(statement)
       })
     }
-    if (this.group) {
-      statement = rdf.triple(fragment, ns.acl('agentClass'),
-        rdf.namedNode(this.group))
+    if (this.isPublic()) {
+      statement = rdf.triple(fragment, ns.acl('agentClass'), ns.foaf('Agent'))
+      statements.push(statement)
+    } else if (this.isGroup()) {
+      statement = rdf.triple(fragment, ns.acl('agentGroup'), rdf.namedNode(this.group))
       statements.push(statement)
     }
     statement = rdf.triple(fragment, ns.acl('accessTo'),
       rdf.namedNode(this.resourceUrl))
     statements.push(statement)
-    var modes = Object.keys(this.accessModes)
+    let modes = Object.keys(this.accessModes)
     modes.forEach((accessMode) => {
       statement = rdf.triple(fragment, ns.acl('mode'), rdf.namedNode(accessMode))
       statements.push(statement)
@@ -499,13 +499,13 @@ class Authorization {
    *   representation of the access mode, or an RDF `acl:mode` triple.
    * @returns {removeMode}
    */
-  removeOrigin (accessMode) {
-    if (Array.isArray(accessMode)) {
-      accessMode.forEach((ea) => {
+  removeOrigin (origin) {
+    if (Array.isArray(origin)) {
+      origin.forEach((ea) => {
         this.removeOriginSingle(ea)
       })
     } else {
-      this.removeOriginSingle(accessMode)
+      this.removeOriginSingle(origin)
     }
     return this
   }
@@ -525,13 +525,14 @@ class Authorization {
   }
 
   /**
-   * Sets the agent WebID for this authorization. Implemented as `setAgent()`
-   * setter method to enforce mutual exclusivity with `group` property, until
-   * ES6 setter methods become available.
+   * Sets the agent WebID for this authorization.
    * @method setAgent
-   * @param agent {String|Quad} Agent URL (or `acl:agent` RDF triple).
+   * @param agent {string|Quad|GroupListing} Agent URL (or `acl:agent` RDF triple).
    */
   setAgent (agent) {
+    if (agent instanceof GroupListing) {
+      return this.setGroup(agent)
+    }
     if (typeof agent !== 'string') {
       // This is an RDF statement
       agent = agent.object.value
@@ -549,22 +550,23 @@ class Authorization {
   }
 
   /**
-   * Sets the group WebID for this authorization. Implemented as `setGroup()`
-   * setter method to enforce mutual exclusivity with `agent` property, until
-   * ES6 setter methods become available.
+   * Sets the group WebID for this authorization.
    * @method setGroup
-   * @param agentClass {String|Statement} Group URL (or `acl:agentClass` RDF
+   * @param group {string|Triple|GroupListing} Group URL (or `acl:agentClass` RDF
    *   triple).
    */
-  setGroup (agentClass) {
-    if (typeof agentClass !== 'string') {
-      // This is an RDF statement
-      agentClass = agentClass.object.value
-    }
+  setGroup (group) {
     if (this.agent) {
       throw new Error('Cannot set group, authorization already has an agent set')
     }
-    this.group = agentClass
+    if (group instanceof GroupListing) {
+      group = group.listing
+    }
+    if (typeof group !== 'string') {
+      // This is an RDF statement
+      group = group.object.value
+    }
+    this.group = group
   }
 
   /**
@@ -596,8 +598,8 @@ class Authorization {
  * @return {String}
  */
 function hashFragmentFor (webId, resourceUrl,
-                          authType = acl.ACCESS_TO) {
-  var hashKey = webId + '-' + resourceUrl + '-' + authType
+  authType = acl.ACCESS_TO) {
+  let hashKey = webId + '-' + resourceUrl + '-' + authType
   return hashKey
 }
 

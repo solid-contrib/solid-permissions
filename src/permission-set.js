@@ -17,8 +17,10 @@
  */
 
 const Authorization = require('./authorization')
+const GroupListing = require('./group-listing')
 const { acl } = require('./modes')
-const ns = require('solid-namespace')
+const vocab = require('solid-namespace')
+const debug = require('debug')('solid:permissions')
 
 const DEFAULT_ACL_SUFFIX = '.acl'
 const DEFAULT_CONTENT_TYPE = 'text/turtle'
@@ -34,25 +36,25 @@ const CONTAINER = 'container'
 const AGENT_INDEX = 'agents'
 const GROUP_INDEX = 'groups'
 
-/**
- * @class PermissionSet
- * @param resourceUrl {String} URL of the resource to which this PS applies
- * @param aclUrl {String} URL of the ACL corresponding to the resource
- * @param isContainer {Boolean} Is the resource a container? (Affects usage of
- *   inherit semantics / acl:default)
- * @param [options={}] {Object} Options hashmap
- * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
- * @param [options.rdf] {RDF} RDF Library
- * @param [options.strictOrigin] {Boolean} Enforce strict origin?
- * @param [options.host] {String} Actual request uri
- * @param [options.origin] {String} Origin URI to enforce, relevant
- *   if strictOrigin is set to true
- * @param [options.webClient] {SolidWebClient} Used for save() and clear()
- * @param [options.isAcl] {Function}
- * @param [options.aclUrlFor] {Function}
- * @constructor
- */
 class PermissionSet {
+  /**
+   * @class PermissionSet
+   * @param resourceUrl {String} URL of the resource to which this PS applies
+   * @param aclUrl {String} URL of the ACL corresponding to the resource
+   * @param isContainer {Boolean} Is the resource a container? (Affects usage of
+   *   inherit semantics / acl:default)
+   * @param [options={}] {Object} Options hashmap
+   * @param [options.graph] {Graph} Parsed RDF graph of the ACL resource
+   * @param [options.rdf] {RDF} RDF Library
+   * @param [options.strictOrigin] {Boolean} Enforce strict origin?
+   * @param [options.host] {String} Actual request uri
+   * @param [options.origin] {String} Origin URI to enforce, relevant
+   *   if strictOrigin is set to true
+   * @param [options.webClient] {SolidWebClient} Used for save() and clear()
+   * @param [options.isAcl] {Function}
+   * @param [options.aclUrlFor] {Function}
+   * @constructor
+   */
   constructor (resourceUrl, aclUrl, isContainer, options = {}) {
     /**
      * Hashmap of all Authorizations in this permission set, keyed by a hashed
@@ -75,14 +77,36 @@ class PermissionSet {
      */
     this.host = options.host
     /**
-     * Initialize the agents / groups / resources indexes.
-     * @property index
+     * Initialize the agents / groups indexes.
+     * For each index type (`agents`, `groups`), authorizations are indexed
+     * first by `agentId`, then by access type (direct or inherited), and
+     * lastly by resource. For example:
+     *
+     *   ```
+     *   agents: {
+     *     'https://alice.com/#i': {
+     *       accessTo: {
+     *         'https://alice.com/file1': authorization1
+     *       },
+     *       default: {
+     *         'https://alice.com/': authorization2
+     *       }
+     *     }
+     *   }
+     *   ```
+     * @property authsBy
      * @type {Object}
      */
-    this.index = {
-      'agents': {},
-      'groups': {}  // Also includes Public permissions
+    this.authsBy = {
+      'agents': {}, // Auths by agent webId
+      'groups': {} // Auths by group webId (also includes Public / EVERYONE)
     }
+    /**
+     * Cache of GroupListing objects, by group webId. Populated by `loadGroups()`.
+     * @property groups
+     * @type {Object}
+     */
+    this.groups = {}
     /**
      * RDF Library (optionally injected)
      * @property rdf
@@ -158,9 +182,9 @@ class PermissionSet {
       this.addControlPermissionsFor(auth)
     }
     // Create the appropriate indexes
-    this.addToAgentIndex(auth.webId(), auth.accessType, auth.resourceUrl, auth)
-    if (auth.isPublic()) {
-      this.addToPublicIndex(auth.resourceUrl, auth.accessType, auth)
+    this.addToAgentIndex(auth)
+    if (auth.isPublic() || auth.isGroup()) {
+      this.addToGroupIndex(auth)
     }
     return this
   }
@@ -173,23 +197,27 @@ class PermissionSet {
    * @private
    * @param resourceUrl {String}
    * @param inherit {Boolean}
-   * @param agent {String|Quad} Agent URL (or `acl:agent` RDF triple).
-   * @param accessModes {String} 'READ'/'WRITE' etc.
+   * @param agent {string|Quad|GroupListing} Agent URL (or `acl:agent` RDF triple).
+   * @param [accessModes=[]] {string|NamedNode|Array} 'READ'/'WRITE' etc.
    * @param [origins=[]] {Array<String>} List of origins that are allowed access
    * @param [mailTos=[]] {Array<String>}
-   * @return {Authorization}
+   * @return {PermissionSet} Returns self, chainable
    */
-  addAuthorizationFor (resourceUrl, inherit, agent, accessModes, origins = [],
-                       mailTos = []) {
+  addAuthorizationFor (resourceUrl, inherit, agent, accessModes = [],
+    origins = [], mailTos = []) {
     let auth = new Authorization(resourceUrl, inherit)
-    auth.setAgent(agent)
+    if (agent instanceof GroupListing) {
+      auth.setGroup(agent.listing)
+    } else {
+      auth.setAgent(agent)
+    }
     auth.addMode(accessModes)
     auth.addOrigin(origins)
     mailTos.forEach(mailTo => {
       auth.addMailTo(mailTo)
     })
     this.addAuthorization(auth)
-    return auth
+    return this
   }
 
   /**
@@ -217,6 +245,9 @@ class PermissionSet {
    * @return {PermissionSet} Returns self (chainable)
    */
   addGroupPermission (webId, accessMode) {
+    if (!this.resourceUrl) {
+      throw new Error('Cannot add a permission to a PermissionSet with no resourceUrl')
+    }
     var auth = new Authorization(this.resourceUrl, this.isAuthInherited())
     auth.setGroup(webId)
     auth.addMode(accessMode)
@@ -239,6 +270,9 @@ class PermissionSet {
     if (!accessMode) {
       throw new Error('addPermission() requires a valid accessMode')
     }
+    if (!this.resourceUrl) {
+      throw new Error('Cannot add a permission to a PermissionSet with no resourceUrl')
+    }
     var auth = new Authorization(this.resourceUrl, this.isAuthInherited())
     auth.setAgent(webId)
     auth.addMode(accessMode)
@@ -254,13 +288,13 @@ class PermissionSet {
    * Enables lookups via `findAuthByAgent()`.
    * @method addToAgentIndex
    * @private
-   * @param webId {String} Agent's Web ID
-   * @param accessType {String} Either `accessTo` or `default`
-   * @param resourceUrl {String}
    * @param authorization {Authorization}
    */
-  addToAgentIndex (webId, accessType, resourceUrl, authorization) {
-    let agents = this.index.agents
+  addToAgentIndex (authorization) {
+    let webId = authorization.webId()
+    let accessType = authorization.accessType
+    let resourceUrl = authorization.resourceUrl
+    let agents = this.authsBy.agents
     if (!agents[webId]) {
       agents[webId] = {}
     }
@@ -279,13 +313,13 @@ class PermissionSet {
    * Enables lookups via `findAuthByAgent()`.
    * @method addToGroupIndex
    * @private
-   * @param webId {String} Group's Web ID
-   * @param accessType {String} Either `accessTo` or `default`
-   * @param resourceUrl {String}
    * @param authorization {Authorization}
    */
-  addToGroupIndex (webId, accessType, resourceUrl, authorization) {
-    let groups = this.index.groups
+  addToGroupIndex (authorization) {
+    let webId = authorization.webId()
+    let accessType = authorization.accessType
+    let resourceUrl = authorization.resourceUrl
+    let groups = this.authsBy.groups
     if (!groups[webId]) {
       groups[webId] = {}
     }
@@ -297,20 +331,6 @@ class PermissionSet {
     } else {
       groups[webId][accessType][resourceUrl].mergeWith(authorization)
     }
-  }
-
-  /**
-   * Adds a given authorization to the "lookup by group id" index.
-   * Alias for `addToGroupIndex()`.
-   * Enables lookups via `findAuthByAgent()`.
-   * @method addToPublicIndex
-   * @private
-   * @param resourceUrl {String}
-   * @param accessType {String} Either `accessTo` or `default`
-   * @param authorization {Authorization}
-   */
-  addToPublicIndex (resourceUrl, accessType, auth) {
-    this.addToGroupIndex(acl.EVERYONE, accessType, resourceUrl, auth)
   }
 
   /**
@@ -367,23 +387,76 @@ class PermissionSet {
    * This is one of the main use cases for this solid-permissions library.
    * Optionally performs strict origin checking (if `strictOrigin` is enabled
    * in the constructor's options).
-   * Returns a promise; async since checking permissions may involve requesting
-   * multiple ACL resources (group listings, etc).
    * @method checkAccess
    * @param resourceUrl {String}
    * @param agentId {String}
    * @param accessMode {String} Access mode (read/write/control)
+   * @param [options={}] {Object} Passed through to `loadGroups()`.
+   * @param [options.fetchGraph] {Function} Injected, returns a parsed graph of
+   *   a remote document (group listing). Required.
+   * @param [options.rdf] {RDF} RDF library
+   * @throws {Error}
    * @return {Promise<Boolean>}
    */
-  checkAccess (resourceUrl, agentId, accessMode) {
-    let result
+  checkAccess (resourceUrl, agentId, accessMode, options = {}) {
+    debug('Checking access for agent ' + agentId)
+    // First, check to see if there is public access for this mode
     if (this.allowsPublic(accessMode, resourceUrl)) {
-      result = true
-    } else {
-      let auth = this.findAuthByAgent(agentId, resourceUrl)
-      result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+      debug('Public access allowed for ' + resourceUrl)
+      return Promise.resolve(true)
     }
-    return Promise.resolve(result)
+    // Next, see if there is an individual authorization (for a user or a group)
+    if (this.checkAccessForAgent(resourceUrl, agentId, accessMode)) {
+      debug('Individual access granted for ' + resourceUrl)
+      return Promise.resolve(true)
+    }
+    // If there are no group authorizations, no need to proceed
+    if (!this.hasGroups()) {
+      debug('No groups authorizations exist')
+      return Promise.resolve(false)
+    }
+    // Lastly, load the remote group listings, and check for group auth
+    debug('Check groups authorizations')
+
+    return this.loadGroups(options)
+      .then(() => {
+        return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
+      })
+  }
+
+  /**
+   * @param resourceUrl {String}
+   * @param agentId {String}
+   * @param accessMode {String} Access mode (read/write/control)
+   * @throws {Error}
+   * @return {Boolean}
+   */
+  checkAccessForAgent (resourceUrl, agentId, accessMode) {
+    let auth = this.findAuthByAgent(agentId, resourceUrl)
+    let result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+    return result
+  }
+
+  /**
+   * @param resourceUrl {string}
+   * @param agentId {string}
+   * @param accessMode {string} Access mode (read/write/control)
+   * @param [options={}] {Object}
+   * @param [options.fetchDocument] {Function}
+   * @throws {Error}
+   * @return {boolean}
+   */
+  checkGroupAccess (resourceUrl, agentId, accessMode, options = {}) {
+    let result = false
+    let membershipMatches = this.groupsForMember(agentId)
+    membershipMatches.find(groupWebId => {
+      debug('Looking for access rights for ' + groupWebId)
+      if (this.checkAccessForAgent(resourceUrl, groupWebId, accessMode)) {
+        debug('Groups access granted for ' + resourceUrl)
+        result = true
+      }
+    })
+    return result
   }
 
   /**
@@ -394,9 +467,9 @@ class PermissionSet {
    * @return {Boolean}
    */
   checkOrigin (authorization) {
-    if (!this.strictOrigin ||  // Enforcement turned off in server config
-        !this.origin ||  // No origin - not a script, do not enforce origin
-        this.origin === this.host) {  // same origin is trusted
+    if (!this.strictOrigin || // Enforcement turned off in server config
+        !this.origin || // No origin - not a script, do not enforce origin
+        this.origin === this.host) { // same origin is trusted
       return true
     }
     // If not same origin, check that the origin is in the explicit ACL list
@@ -494,7 +567,7 @@ class PermissionSet {
    * @return {Authorization}
    */
   findAuthByAgent (webId, resourceUrl, indexType = AGENT_INDEX) {
-    let index = this.index[indexType]
+    let index = this.authsBy[indexType]
     if (!index[webId]) {
       // There are no permissions at all for this agent
       return false
@@ -564,6 +637,43 @@ class PermissionSet {
   }
 
   /**
+   * Returns a list of webIds of groups to which this agent belongs.
+   * Note: Only checks loaded groups (assumes a previous `loadGroups()` call).
+   * @param agentId {string}
+   * @return {Array<string>}
+   */
+  groupsForMember (agentId) {
+    let loadedGroupIds = Object.keys(this.groups)
+    return loadedGroupIds
+      .filter(groupWebId => {
+        return this.groups[groupWebId].hasMember(agentId)
+      })
+  }
+
+  /**
+   * Returns a list of URIs of group authorizations in this permission set
+   * (those added via addGroupPermission(), etc).
+   * @param [excludePublic=true] {Boolean} Should agentClass Agent be excluded?
+   * @return {Array<string>}
+   */
+  groupUris (excludePublic = true) {
+    let groupIndex = this.authsBy.groups
+    let uris = Object.keys(groupIndex)
+    if (excludePublic) {
+      uris = uris.filter((uri) => { return uri !== acl.EVERYONE })
+    }
+    return uris
+  }
+
+  /**
+   * Tests whether this permission set has any `acl:agentGroup` authorizations
+   * @return {Boolean}
+   */
+  hasGroups () {
+    return this.groupUris().length > 0
+  }
+
+  /**
    * Creates and loads all the authorizations from a given RDF graph.
    * Used by `getPermissions()` and by the constructor (optionally).
    * Usage:
@@ -576,14 +686,14 @@ class PermissionSet {
    * @param graph {Dataset} RDF Graph (parsed from the source ACL)
    */
   initFromGraph (graph) {
-    let vocab = ns(this.rdf)
-    let authSections = graph.match(null, null, vocab.acl('Authorization'))
+    let ns = vocab(this.rdf)
+    let authSections = graph.match(null, null, ns.acl('Authorization'))
     if (authSections.length) {
       authSections = authSections.map(match => { return match.subject })
     } else {
       // Attempt to deal with an ACL with no acl:Authorization types present.
       let subjects = {}
-      authSections = graph.match(null, vocab.acl('mode'))
+      authSections = graph.match(null, ns.acl('mode'))
       authSections.forEach(match => {
         subjects[match.subject.value] = match.subject
       })
@@ -594,21 +704,24 @@ class PermissionSet {
     // Iterate through each grouping of authorizations in the .acl graph
     authSections.forEach(fragment => {
       // Extract the access modes
-      let accessModes = graph.match(fragment, vocab.acl('mode'))
+      let accessModes = graph.match(fragment, ns.acl('mode'))
       // Extract allowed origins
-      let origins = graph.match(fragment, vocab.acl('origin'))
+      let origins = graph.match(fragment, ns.acl('origin'))
 
       // Extract all the authorized agents
-      let agentMatches = graph.match(fragment, vocab.acl('agent'))
+      let agentMatches = graph.match(fragment, ns.acl('agent'))
       // Mailtos only apply to agents (not groups)
       let mailTos = agentMatches.filter(isMailTo)
       // Now filter out mailtos
       agentMatches = agentMatches.filter(ea => { return !isMailTo(ea) })
       // Extract all 'Public' matches (agentClass foaf:Agent)
-      let publicMatches = graph.match(fragment, vocab.acl('agentClass'),
-        vocab.foaf('Agent'))
+      let publicMatches = graph.match(fragment, ns.acl('agentClass'),
+        ns.foaf('Agent'))
       // Extract all acl:agentGroup matches
-      let groupMatches = graph.match(fragment, vocab.acl('agentGroup'))
+      let groupMatches = graph.match(fragment, ns.acl('agentGroup'))
+      groupMatches = groupMatches.map(ea => {
+        return new GroupListing({ listing: ea })
+      })
       // Create an Authorization object for each group (accessTo and default)
       let allAgents = agentMatches
         .concat(publicMatches)
@@ -617,15 +730,15 @@ class PermissionSet {
       //   (both individual (acl:accessTo) and inherited (acl:default))
       allAgents.forEach(agentMatch => {
         // Extract the acl:accessTo statements.
-        let accessToMatches = graph.match(fragment, vocab.acl('accessTo'))
+        let accessToMatches = graph.match(fragment, ns.acl('accessTo'))
         accessToMatches.forEach(resourceMatch => {
           let resourceUrl = resourceMatch.object.value
           this.addAuthorizationFor(resourceUrl, acl.NOT_INHERIT,
             agentMatch, accessModes, origins, mailTos)
         })
         // Extract inherited / acl:default statements
-        let inheritedMatches = graph.match(fragment, vocab.acl('default'))
-          .concat(graph.match(fragment, vocab.acl('defaultForNew')))
+        let inheritedMatches = graph.match(fragment, ns.acl('default'))
+          .concat(graph.match(fragment, ns.acl('defaultForNew')))
         inheritedMatches.forEach(containerMatch => {
           let containerUrl = containerMatch.object.value
           this.addAuthorizationFor(containerUrl, acl.INHERIT,
@@ -652,6 +765,38 @@ class PermissionSet {
    */
   isEmpty () {
     return this.count === 0
+  }
+
+  /**
+   * @method loadGroups
+   * @param [options={}]
+   * @param [options.fetchGraph] {Function} Injected, returns a parsed graph of
+   *   a remote document (group listing). Required.
+   * @param [options.rdf] {RDF} RDF library
+   * @throws {Error}
+   * @return {Promise<PermissionSet>} Resolves to self, chainable
+   */
+  loadGroups (options = {}) {
+    let fetchGraph = options.fetchGraph
+    debug('Fetching with ' + fetchGraph)
+    let rdf = options.rdf || this.rdf
+    if (!fetchGraph) {
+      return Promise.reject(new Error('Cannot load groups, fetchGraph() not supplied'))
+    }
+    if (!rdf) {
+      return Promise.reject(new Error('Cannot load groups, rdf library not supplied'))
+    }
+    let uris = this.groupUris()
+    let loadActions = uris.map(uri => {
+      return GroupListing.loadFrom(uri, fetchGraph, rdf, options)
+    })
+    return Promise.all(loadActions)
+      .then(groups => {
+        groups.forEach(group => {
+          if (group) { this.groups[group.uri] = group }
+        })
+        return this
+      })
   }
 
   /**
@@ -760,7 +905,7 @@ class PermissionSet {
     }
     let graph = this.buildGraph(rdf)
     let target = null
-    let base = null
+    let base = this.aclUrl
     return new Promise((resolve, reject) => {
       rdf.serialize(target, graph, base, contentType, (err, result) => {
         if (err) { return reject(err) }
@@ -783,7 +928,7 @@ class PermissionSet {
  */
 function defaultAclUrlFor (resourceUri) {
   if (defaultIsAcl(resourceUri)) {
-    return resourceUri  // .acl resources are their own ACLs
+    return resourceUri // .acl resources are their own ACLs
   } else {
     return resourceUri + DEFAULT_ACL_SUFFIX
   }

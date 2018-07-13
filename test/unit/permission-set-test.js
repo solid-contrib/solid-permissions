@@ -16,20 +16,8 @@ const bobWebId = 'https://bob.example.com/#me'
 const aliceWebId = 'https://alice.example.com/#me'
 // Not really sure what group webIDs will look like, not yet implemented:
 const groupWebId = 'https://devteam.example.com/something'
+const { parseGraph } = require('./utils')
 
-function parseGraph (rdf, baseUrl, rdfSource, contentType = 'text/turtle') {
-  let graph = rdf.graph()
-  return new Promise((resolve, reject) => {
-    rdf.parse(rdfSource, graph, baseUrl, contentType, (err, result) => {
-      if (err) { return reject(err) }
-      if (!result) {
-        return reject(new Error('Error serializing the graph to ' +
-          contentType))
-      }
-      resolve(result)
-    })
-  })
-}
 const rawAclSource = require('../resources/acl-container-ttl')
 var parsedAclGraph
 
@@ -50,6 +38,8 @@ test('a new PermissionSet()', function (t) {
   t.equal(ps.count, 0, 'should have a count of 0')
   t.notOk(ps.resourceUrl, 'should have a null resource url')
   t.notOk(ps.aclUrl, 'should have a null acl url')
+  t.deepEqual(ps.allAuthorizations(), [])
+  t.notOk(ps.hasGroups(), 'should have no group auths')
   t.end()
 })
 
@@ -70,7 +60,7 @@ test('PermissionSet can add and remove agent authorizations', function (t) {
   let origin = 'https://example.com/'
   // Notice that addPermission() is chainable:
   ps
-    .addPermission(bobWebId, acl.READ, origin)  // only allow read from origin
+    .addPermission(bobWebId, acl.READ, origin) // only allow read from origin
     .addPermission(aliceWebId, [acl.READ, acl.WRITE])
   t.notOk(ps.isEmpty())
   t.equal(ps.count, 2)
@@ -238,7 +228,6 @@ test('PermissionSet equals test 4', function (t) {
 test('PermissionSet serialized & deserialized round trip test', function (t) {
   var ps = new PermissionSet(containerUrl, containerAclUrl,
     PermissionSet.CONTAINER, { graph: parsedAclGraph, rdf })
-  let auth = ps.permissionFor(aliceWebId)
   // console.log(ps.serialize())
   t.ok(ps.equals(ps), 'A PermissionSet should equal itself')
   // Now check to make sure serialize() & reparse results in the same set
@@ -255,6 +244,10 @@ test('PermissionSet serialized & deserialized round trip test', function (t) {
       t.ok(ps.equals(ps2),
         'A PermissionSet serialized and re-parsed should equal the original one')
       t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail(err)
     })
 })
 
@@ -284,7 +277,6 @@ test('allowsPublic() should ignore origin checking', function (t) {
     })
 })
 
-
 test('PermissionSet init from untyped ACL test', function (t) {
   let rawAclSource = require('../resources/untyped-acl-ttl')
   let resourceUrl = 'https://alice.example.com/docs/file1'
@@ -297,6 +289,10 @@ test('PermissionSet init from untyped ACL test', function (t) {
       t.ok(ps.count,
         'Permission set should init correctly without acl:Authorization type')
       t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail(err)
     })
 })
 
@@ -367,7 +363,6 @@ test('PermissionSet save() no aclUrl test', t => {
 })
 
 test('PermissionSet save() no web client test', t => {
-  let nullAclUrl
   let ps = new PermissionSet(resourceUrl, aclUrl, false,
     { rdf, graph: parsedAclGraph })
   ps.save()
@@ -378,4 +373,44 @@ test('PermissionSet save() no web client test', t => {
       t.equal(err.message, 'Cannot save - no web client')
       t.end()
     })
+})
+
+test('PermissionSet parsing acl with agentGroup', t => {
+  let groupAclSource = require('../resources/acl-with-group-ttl')
+  let resourceUrl = 'https://alice.example.com/docs/file2.ttl'
+  let aclUrl = 'https://alice.example.com/docs/file2.ttl.acl'
+  let groupUrl = 'https://alice.example.com/work-groups#Accounting'
+
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer, { rdf })
+  parseGraph(rdf, aclUrl, groupAclSource)
+    .then(graph => {
+      ps.initFromGraph(graph)
+      // Check to make sure
+      let auth = ps.findAuthByAgent(groupUrl, resourceUrl)
+      t.ok(auth, 'Should have parsed the aclGroup authorization')
+      t.equals(auth.group, groupUrl, 'Authorization should have .group set')
+      t.ok(auth.isGroup())
+      t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail(err)
+    })
+})
+
+test('PermissionSet groupUris() test', t => {
+  let resourceUrl = 'https://alice.example.com/docs/file2.ttl'
+  let ps = new PermissionSet(resourceUrl)
+  ps.addGroupPermission(acl.EVERYONE, acl.READ)
+  // By default, groupUris() excludes the Public agentClass
+  t.deepEquals(ps.groupUris(), [])
+  t.notOk(ps.hasGroups())
+  let groupUrl = 'https://alice.example.com/work-groups#Accounting'
+  ps.addGroupPermission(groupUrl, acl.WRITE)
+  t.equals(ps.groupUris().length, 1)
+  t.ok(ps.hasGroups())
+  let excludePublic = false
+  t.equals(ps.groupUris(excludePublic).length, 2)
+  t.end()
 })
