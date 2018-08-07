@@ -410,18 +410,26 @@ class PermissionSet {
       debug('Individual access granted for ' + resourceUrl)
       return Promise.resolve(true)
     }
-    // If there are no group authorizations, no need to proceed
-    if (!this.hasGroups()) {
-      debug('No groups authorizations exist')
-      return Promise.resolve(false)
-    }
-    // Lastly, load the remote group listings, and check for group auth
-    debug('Check groups authorizations')
 
-    return this.loadGroups(options)
-      .then(() => {
-        return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
-      })
+    let groupaccess = Promise.resolve(false); 
+    if (this.hasGroups()) {
+      // Lastly, load the remote group listings, and check for group auth
+      debug('Check groups authorizations')
+
+      groupaccess = this.loadGroups(options)
+	    .then(() => {
+		return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
+	    })
+
+    }
+    if (!groupaccess) {
+      // Then, access will not be granted
+      debug('Can agent ' + agentId + ' ' + accessMode + ' ' + resourceUrl + '?')
+      if (this.origin) {
+        debug('Can origin ' + this.origin + ' ' + accessMode + ' ' + resourceUrl + '?')
+      }
+    }
+    return groupaccess;
   }
 
   /**
@@ -472,6 +480,7 @@ class PermissionSet {
         this.origin === this.host) { // same origin is trusted
       return true
     }
+    debug('Not the same origin, checking ACL')
     // If not same origin, check that the origin is in the explicit ACL list
     return authorization.allowsOrigin(this.origin)
   }
