@@ -411,25 +411,22 @@ class PermissionSet {
       return Promise.resolve(true)
     }
 
-    let groupaccess = Promise.resolve(false); 
     if (this.hasGroups()) {
       // Lastly, load the remote group listings, and check for group auth
       debug('Check groups authorizations')
 
-      groupaccess = this.loadGroups(options)
+      return this.loadGroups(options)
 	    .then(() => {
 		return this.checkGroupAccess(resourceUrl, agentId, accessMode, options)
 	    })
+    }
 
+    // Then, access will not be granted
+    debug('Can agent ' + agentId + ' ' + accessMode + ' ' + resourceUrl + '?')
+    if (this.origin) {
+      debug('Can origin ' + this.origin + ' ' + accessMode + ' ' + resourceUrl + '?')
     }
-    if (!groupaccess) {
-      // Then, access will not be granted
-      debug('Can agent ' + agentId + ' ' + accessMode + ' ' + resourceUrl + '?')
-      if (this.origin) {
-        debug('Can origin ' + this.origin + ' ' + accessMode + ' ' + resourceUrl + '?')
-      }
-    }
-    return groupaccess;
+    return Promise.resolve(false);
   }
 
   /**
