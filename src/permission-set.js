@@ -410,6 +410,12 @@ class PermissionSet {
       debug('Individual access granted for ' + resourceUrl)
       return Promise.resolve(true)
     }
+
+    if (this.checkAccessForAuthenticated(resourceUrl, accessMode)) {
+      debug('Access granted to authenticated user to ' + resourceUrl)
+      return Promise.resolve(true)
+    }
+
     // If there are no group authorizations, no need to proceed
     if (!this.hasGroups()) {
       debug('No groups authorizations exist')
@@ -434,6 +440,12 @@ class PermissionSet {
   checkAccessForAgent (resourceUrl, agentId, accessMode) {
     let auth = this.findAuthByAgent(agentId, resourceUrl)
     let result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+    return result
+  }
+
+  checkAccessForAuthenticated(resourceUrl, accessMode) {
+    let auth = this.findAuthByAgent(acl.ANYONE_AUTHENTICATED, resourceUrl)
+    let result = (auth && auth.allowsMode(accessMode)) // Do we need to checkOrigin here too?
     return result
   }
 
