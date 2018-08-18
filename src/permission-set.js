@@ -411,7 +411,7 @@ class PermissionSet {
       return Promise.resolve(true)
     }
 
-    if (this.checkAccessForAuthenticated(resourceUrl, accessMode)) {
+    if (this.checkAccessForAgent(resourceUrl, acl.ANYONE_AUTHENTICATED, accessMode)) {
       debug('Access granted to authenticated user to ' + resourceUrl)
       return Promise.resolve(true)
     }
@@ -440,12 +440,6 @@ class PermissionSet {
   checkAccessForAgent (resourceUrl, agentId, accessMode) {
     let auth = this.findAuthByAgent(agentId, resourceUrl)
     let result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
-    return result
-  }
-
-  checkAccessForAuthenticated(resourceUrl, accessMode) {
-    let auth = this.findAuthByAgent(acl.ANYONE_AUTHENTICATED, resourceUrl)
-    let result = (auth && auth.allowsMode(accessMode)) // Do we need to checkOrigin here too?
     return result
   }
 
