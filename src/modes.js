@@ -28,6 +28,7 @@ module.exports.acl = {
   APPEND,
   CONTROL,
   EVERYONE,
+  ANYONE_AUTHENTICATED,
   INHERIT,
   NOT_INHERIT,
   ACCESS_TO,
