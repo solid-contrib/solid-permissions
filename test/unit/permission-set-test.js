@@ -414,3 +414,27 @@ test('PermissionSet groupUris() test', t => {
   t.equals(ps.groupUris(excludePublic).length, 2)
   t.end()
 })
+
+test('PermissionSet parsing acl with agentClass AuthenticatedAgent', t => {
+  let classAclSource = require('../resources/acl-container-ttl.js')
+  let resourceUrl = 'https://alice.example.com/shared/file1.ttl'
+  let aclUrl = 'https://alice.example.com/shared/file1.ttl.acl'
+  let classUrl = 'http://www.w3.org/ns/auth/acl#AuthenticatedAgent'
+
+  let isContainer = false
+  let ps = new PermissionSet(resourceUrl, aclUrl, isContainer, { rdf })
+  parseGraph(rdf, aclUrl, classAclSource)
+    .then(graph => {
+      ps.initFromGraph(graph)
+      // Check to make sure
+      let auth = ps.findAuthByAgent(classUrl, resourceUrl)
+      t.ok(auth, 'Should have parsed the acl:AuthenticatedAgent authorization')
+ //     t.equals(auth.class, classUrl, 'Authorization should have .class set')
+  //    t.ok(auth.isClass())
+      t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      t.fail(err)
+    })
+})

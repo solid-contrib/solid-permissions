@@ -28,4 +28,11 @@ module.exports = `@prefix acl: <http://www.w3.org/ns/auth/acl#>.
     a acl:Authorization;
     acl:agentClass foaf:Agent;  # everyone
     acl:mode acl:Read;  # has Read-only access
-    acl:accessTo <https://alice.example.com/profile/card>. # to the public profile`
+    acl:accessTo <https://alice.example.com/profile/card>. # to the public profile
+
+
+<#authorization3>
+    a acl:Authorization;
+    acl:agentClass acl:AuthenticatedAgent;  # every logged in user
+    acl:mode acl:Read;  # has Read-only access
+    acl:accessTo <https://alice.example.com/shared/>. # to shared stuff`
