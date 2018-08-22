@@ -425,15 +425,15 @@ test('PermissionSet parsing acl with agentClass AuthenticatedAgent', t => {
   let ps = new PermissionSet(resourceUrl, aclUrl, isContainer, { rdf })
   parseGraph(rdf, aclUrl, classAclSource)
     .then(graph => {
+      t.true('The ACL filed parsed.')
       ps.initFromGraph(graph)
       // Check to make sure
       let auth = ps.findAuthByAgent(classUrl, resourceUrl)
-      t.ok(auth, 'Should have parsed the acl:AuthenticatedAgent authorization')
+      t.ok(auth, 'Auth found for ' + resourceUrl);
  //     t.equals(auth.class, classUrl, 'Authorization should have .class set')
   //    t.ok(auth.isClass())
       t.end()
-    })
-    .catch(err => {
+    }, err => {
       console.log(err)
       t.fail(err)
     })
