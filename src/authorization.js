@@ -449,7 +449,7 @@ class Authorization {
       statements.push(statement)
     })
     if (this.inherited) {
-      statement = rdf.triple(fragment, ns.acl('defaultForNew'),
+      statement = rdf.triple(fragment, ns.acl('default'),
         rdf.namedNode(this.resourceUrl))
       statements.push(statement)
     }
