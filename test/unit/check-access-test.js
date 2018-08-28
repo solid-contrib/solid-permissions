@@ -77,10 +77,10 @@ test('PermissionSet checkAccess() test - public access', function (t) {
   let inherit = true
 
   // First, let's test an inherited allow public read permission
-  let auth1 = new Permission(containerUrl, inherit)
-  auth1.setPublic()
-  auth1.addMode(acl.READ)
-  ps.addSinglePermission(auth1)
+  let perm1 = new Permission(containerUrl, inherit)
+  perm1.setPublic()
+  perm1.addMode(acl.READ)
+  ps.addSinglePermission(perm1)
   // See if this file has inherited access
   let resourceUrl = 'https://alice.example.com/docs/file1'
   let randomUser = 'https://someone.else.com/'
@@ -89,10 +89,10 @@ test('PermissionSet checkAccess() test - public access', function (t) {
       t.ok(result, 'Everyone should have inherited read access to file')
       // Reset the permission set, test a non-default permission
       ps = new PermissionSet()
-      let auth2 = new Permission(resourceUrl, !inherit)
-      auth2.setPublic()
-      auth2.addMode(acl.READ)
-      ps.addSinglePermission(auth2)
+      let perm2 = new Permission(resourceUrl, !inherit)
+      perm2.setPublic()
+      perm2.addMode(acl.READ)
+      ps.addSinglePermission(perm2)
       return ps.checkAccess(resourceUrl, randomUser, acl.READ)
     })
     .then(result => {

@@ -261,9 +261,9 @@ class Permission {
    * @return {Permission}
    */
   clone () {
-    let auth = new Permission()
-    Object.assign(auth, JSON.parse(JSON.stringify(this)))
-    return auth
+    let perm = new Permission()
+    Object.assign(perm, JSON.parse(JSON.stringify(this)))
+    return perm
   }
 
   /**
@@ -276,25 +276,25 @@ class Permission {
    *   - Contain the same `mailto:` agent aliases.
    *   - Has the same allowed origins
    * @method equals
-   * @param auth {Permission}
+   * @param perm {Permission}
    * @return {Boolean}
    */
-  equals (auth) {
-    let sameAgent = this.agent === auth.agent
-    let sameGroup = this.group === auth.group
-    let sameUrl = this.resourceUrl === auth.resourceUrl
+  equals (perm) {
+    let sameAgent = this.agent === perm.agent
+    let sameGroup = this.group === perm.group
+    let sameUrl = this.resourceUrl === perm.resourceUrl
     let myModeKeys = Object.keys(this.accessModes)
-    let authModeKeys = Object.keys(auth.accessModes)
-    let sameNumberModes = myModeKeys.length === authModeKeys.length
+    let permModeKeys = Object.keys(perm.accessModes)
+    let sameNumberModes = myModeKeys.length === permModeKeys.length
     let sameInherit =
-      JSON.stringify(this.inherited) === JSON.stringify(auth.inherited)
+      JSON.stringify(this.inherited) === JSON.stringify(perm.inherited)
     let sameModes = true
     myModeKeys.forEach((key) => {
-      if (!auth.accessModes[ key ]) { sameModes = false }
+      if (!perm.accessModes[ key ]) { sameModes = false }
     })
-    let sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(auth.mailTo)
+    let sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(perm.mailTo)
     let sameOrigins =
-      JSON.stringify(this.originsAllowed) === JSON.stringify(auth.originsAllowed)
+      JSON.stringify(this.originsAllowed) === JSON.stringify(perm.originsAllowed)
     return sameAgent && sameGroup && sameUrl && sameNumberModes && sameModes &&
       sameInherit && sameMailTos && sameOrigins
   }
@@ -383,15 +383,15 @@ class Permission {
    * Merges the access modes of a given permission with the access modes of
    * this one (Set union).
    * @method mergeWith
-   * @param auth
+   * @param perm
    * @throws {Error} Error if the other permission is for a different webId
    *   or resourceUrl (`acl:accessTo`)
    */
-  mergeWith (auth) {
-    if (this.hashFragment() !== auth.hashFragment()) {
+  mergeWith (perm) {
+    if (this.hashFragment() !== perm.hashFragment()) {
       throw new Error('Cannot merge permissions with different agent id or resource url (accessTo)')
     }
-    for (var accessMode in auth.accessModes) {
+    for (var accessMode in perm.accessModes) {
       this.addMode(accessMode)
     }
   }
