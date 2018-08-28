@@ -4,7 +4,7 @@ const test = require('tape')
 const before = test
 const sinon = require('sinon')
 const rdf = require('rdflib')
-const Authorization = require('../../src/authorization')
+const Permission = require('../../src/permission')
 const { acl } = require('../../src/modes')
 const PermissionSet = require('../../src/permission-set')
 
@@ -38,7 +38,7 @@ test('a new PermissionSet()', function (t) {
   t.equal(ps.count, 0, 'should have a count of 0')
   t.notOk(ps.resourceUrl, 'should have a null resource url')
   t.notOk(ps.aclUrl, 'should have a null acl url')
-  t.deepEqual(ps.allAuthorizations(), [])
+  t.deepEqual(ps.allPermissions(), [])
   t.notOk(ps.hasGroups(), 'should have no group auths')
   t.end()
 })
@@ -54,7 +54,7 @@ test('a new PermissionSet() for a resource', function (t) {
   t.end()
 })
 
-test('PermissionSet can add and remove agent authorizations', function (t) {
+test('PermissionSet can add and remove agent permissions', function (t) {
   let ps = new PermissionSet(resourceUrl, aclUrl)
   t.equal(ps.aclUrl, aclUrl)
   let origin = 'https://example.com/'
@@ -67,44 +67,44 @@ test('PermissionSet can add and remove agent authorizations', function (t) {
   let auth = ps.permissionFor(bobWebId)
   t.equal(auth.agent, bobWebId)
   t.equal(auth.resourceUrl, resourceUrl)
-  t.equal(auth.resourceType, Authorization.RESOURCE)
+  t.equal(auth.resourceType, Permission.RESOURCE)
   t.ok(auth.allowsOrigin(origin))
   t.ok(auth.allowsRead())
   t.notOk(auth.allowsWrite())
   // adding further permissions for an existing agent just merges access modes
   ps.addPermission(bobWebId, acl.WRITE)
-  // should still only be 2 authorizations
+  // should still only be 2 permissions
   t.equal(ps.count, 2)
   auth = ps.permissionFor(bobWebId)
   t.ok(auth.allowsWrite())
 
   // Now remove the added permission
   ps.removePermission(bobWebId, acl.READ)
-  // Still 2 authorizations, agent1 has a WRITE permission remaining
+  // Still 2 permissions, agent1 has a WRITE permission remaining
   t.equal(ps.count, 2)
   auth = ps.permissionFor(bobWebId)
   t.notOk(auth.allowsRead())
   t.ok(auth.allowsWrite())
 
   // Now, if you remove the remaining WRITE permission from agent1, that whole
-  // authorization is removed
+  // permission is removed
   ps.removePermission(bobWebId, acl.WRITE)
-  t.equal(ps.count, 1, 'Only one authorization should remain')
+  t.equal(ps.count, 1, 'Only one permission should remain')
   t.notOk(ps.permissionFor(bobWebId),
-    'No authorization for agent1 should be found')
+    'No permission for agent1 should be found')
   t.end()
 })
 
-test('PermissionSet no duplicate authorizations test', function (t) {
+test('PermissionSet no duplicate permissions test', function (t) {
   let ps = new PermissionSet(resourceUrl, aclUrl)
   // Now add two identical permissions
   ps.addPermission(aliceWebId, [acl.READ, acl.WRITE])
   ps.addPermission(aliceWebId, [acl.READ, acl.WRITE])
-  t.equal(ps.count, 1, 'Duplicate authorizations should be eliminated')
+  t.equal(ps.count, 1, 'Duplicate permissions should be eliminated')
   t.end()
 })
 
-test('PermissionSet can add and remove group authorizations', function (t) {
+test('PermissionSet can add and remove group permissions', function (t) {
   let ps = new PermissionSet(resourceUrl)
   // Let's add an agentGroup permission
   ps.addGroupPermission(groupWebId, [acl.READ, acl.WRITE])
@@ -122,7 +122,7 @@ test('iterating over a PermissionSet', function (t) {
     .addPermission(bobWebId, acl.READ)
     .addPermission(aliceWebId, [acl.READ, acl.WRITE])
   ps.forEach(function (auth) {
-    t.ok(auth.hashFragment() in ps.authorizations)
+    t.ok(auth.hashFragment() in ps.permissions)
   })
   t.end()
 })
@@ -130,22 +130,22 @@ test('iterating over a PermissionSet', function (t) {
 test.skip('a PermissionSet() for a container', function (t) {
   let isContainer = true
   let ps = new PermissionSet(containerUrl, aclUrl, isContainer)
-  t.ok(ps.isAuthInherited(),
+  t.ok(ps.isPermInherited(),
     'A PermissionSet for a container should be inherited by default')
   ps.addPermission(bobWebId, acl.READ)
   let auth = ps.permissionFor(bobWebId)
   t.ok(auth.isInherited(),
-    'An authorization intended for a container should be inherited by default')
+    'An permission intended for a container should be inherited by default')
   t.end()
 })
 
 test('a PermissionSet() for a resource (not container)', function (t) {
   let ps = new PermissionSet(containerUrl)
-  t.notOk(ps.isAuthInherited())
+  t.notOk(ps.isPermInherited())
   ps.addPermission(bobWebId, acl.READ)
   let auth = ps.permissionFor(bobWebId)
   t.notOk(auth.isInherited(),
-    'An authorization intended for a resource should not be inherited by default')
+    'An permission intended for a resource should not be inherited by default')
   t.end()
 })
 
@@ -155,8 +155,8 @@ test('a PermissionSet can be initialized from an .acl graph', function (t) {
   let ps = new PermissionSet(resourceUrl, aclUrl, isContainer,
     { graph: parsedAclGraph, rdf })
 
-  // Check to make sure Alice's authorizations were read in correctly
-  let auth = ps.findAuthByAgent(aliceWebId, resourceUrl)
+  // Check to make sure Alice's permissions were read in correctly
+  let auth = ps.findPermByAgent(aliceWebId, resourceUrl)
   t.ok(auth, 'Alice should have a permission for /docs/file1')
   t.ok(auth.isInherited())
   t.ok(auth.allowsWrite() && auth.allowsWrite() && auth.allowsControl())
@@ -167,17 +167,17 @@ test('a PermissionSet can be initialized from an .acl graph', function (t) {
   t.ok(auth.mailTo.length > 0, 'Alice agent should have a mailto: set')
   t.equal(auth.mailTo[0], 'alice@example.com')
   t.equal(auth.mailTo[1], 'bob@example.com')
-  // Check to make sure Bob's authorizations were read in correctly
-  let auth2 = ps.findAuthByAgent(bobWebId, resourceUrl)
-  t.ok(auth2, 'Container acl should also have an authorization for Bob')
+  // Check to make sure Bob's permissions were read in correctly
+  let auth2 = ps.findPermByAgent(bobWebId, resourceUrl)
+  t.ok(auth2, 'Container acl should also have an permission for Bob')
   t.ok(auth2.isInherited())
   t.ok(auth2.allowsWrite() && auth2.allowsWrite() && auth2.allowsControl())
   t.ok(auth2.mailTo.length > 0, 'Bob agent should have a mailto: set')
   t.equal(auth2.mailTo[0], 'alice@example.com')
   t.equal(auth2.mailTo[1], 'bob@example.com')
-  // // Now check that the Public Read authorization was parsed
+  // // Now check that the Public Read permission was parsed
   let publicResource = 'https://alice.example.com/profile/card'
-  let publicAuth = ps.findPublicAuth(publicResource)
+  let publicAuth = ps.findPublicPerm(publicResource)
   t.ok(publicAuth.isPublic())
   t.notOk(publicAuth.isInherited())
   t.ok(publicAuth.allowsRead())
@@ -387,9 +387,9 @@ test('PermissionSet parsing acl with agentGroup', t => {
     .then(graph => {
       ps.initFromGraph(graph)
       // Check to make sure
-      let auth = ps.findAuthByAgent(groupUrl, resourceUrl)
-      t.ok(auth, 'Should have parsed the aclGroup authorization')
-      t.equals(auth.group, groupUrl, 'Authorization should have .group set')
+      let auth = ps.findPermByAgent(groupUrl, resourceUrl)
+      t.ok(auth, 'Should have parsed the aclGroup permission')
+      t.equals(auth.group, groupUrl, 'Permission should have .group set')
       t.ok(auth.isGroup())
       t.end()
     })

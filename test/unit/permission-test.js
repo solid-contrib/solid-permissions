@@ -3,7 +3,7 @@
 const test = require('tape')
 const rdf = require('rdflib')
 const ns = require('solid-namespace')(rdf)
-const Authorization = require('../../src/authorization')
+const Permission = require('../../src/permission')
 const { acl } = require('../../src/modes')
 
 const resourceUrl = 'https://bob.example.com/docs/file1'
@@ -11,8 +11,8 @@ const agentWebId = 'https://bob.example.com/profile/card#me'
 // Not really sure what group webIDs will look like, not yet implemented:
 const groupWebId = 'https://devteam.example.com/something'
 
-test('a new Authorization()', t => {
-  let auth = new Authorization()
+test('a new Permission()', t => {
+  let auth = new Permission()
   t.notOk(auth.isAgent())
   t.notOk(auth.isGroup())
   t.notOk(auth.isPublic())
@@ -23,13 +23,13 @@ test('a new Authorization()', t => {
   t.deepEqual(auth.allOrigins(), [])
   t.deepEqual(auth.allModes(), [])
   t.notOk(auth.isInherited(),
-    'An Authorization should not be inherited (acl:default) by default')
-  t.ok(auth.isEmpty(), 'a new Authorization should be empty')
+    'An Permission should not be inherited (acl:default) by default')
+  t.ok(auth.isEmpty(), 'a new Permission should be empty')
   t.end()
 })
 
-test('a new Authorization for a container', t => {
-  let auth = new Authorization(resourceUrl, acl.INHERIT)
+test('a new Permission for a container', t => {
+  let auth = new Permission(resourceUrl, acl.INHERIT)
   t.equal(auth.resourceUrl, resourceUrl)
   t.notOk(auth.webId())
   t.notOk(auth.allowsRead())
@@ -37,20 +37,20 @@ test('a new Authorization for a container', t => {
   t.notOk(auth.allowsAppend())
   t.notOk(auth.allowsControl())
   t.ok(auth.isInherited(),
-    'Authorizations for containers should be inherited by default')
+    'Permissions for containers should be inherited by default')
   t.equal(auth.accessType, acl.DEFAULT)
   t.end()
 })
 
-test('Authorization allowsMode() test', t => {
-  let auth = new Authorization()
+test('Permission allowsMode() test', t => {
+  let auth = new Permission()
   auth.addMode(acl.WRITE)
   t.ok(auth.allowsMode(acl.WRITE), 'auth.allowsMode() should work')
   t.end()
 })
 
-test('an Authorization allows editing permission modes', t => {
-  let auth = new Authorization()
+test('an Permission allows editing permission modes', t => {
+  let auth = new Permission()
   auth.addMode(acl.CONTROL)
   t.notOk(auth.isEmpty(), 'Adding an access mode means no longer empty')
   t.ok(auth.allowsControl(), 'Adding Control mode failed')
@@ -80,8 +80,8 @@ test('an Authorization allows editing permission modes', t => {
   t.end()
 })
 
-test('an Authorization can add or remove multiple modes', t => {
-  let auth = new Authorization()
+test('an Permission can add or remove multiple modes', t => {
+  let auth = new Permission()
   auth.addMode([acl.READ, acl.WRITE, acl.CONTROL])
   t.ok(auth.allowsRead() && auth.allowsWrite() && auth.allowsControl())
   auth.removeMode([acl.WRITE, acl.READ])
@@ -90,8 +90,8 @@ test('an Authorization can add or remove multiple modes', t => {
   t.end()
 })
 
-test('an Authorization can only have either an agent or a group', t => {
-  let auth1 = new Authorization()
+test('an Permission can only have either an agent or a group', t => {
+  let auth1 = new Permission()
   auth1.setAgent(agentWebId)
   t.equal(auth1.agent, agentWebId)
   // Try to set a group while an agent already set
@@ -99,7 +99,7 @@ test('an Authorization can only have either an agent or a group', t => {
     auth1.setGroup(groupWebId)
   }, 'Trying to set a group for an auth with an agent should throw an error')
   // Now try the other way -- setting an agent while a group is set
-  let auth2 = new Authorization()
+  let auth2 = new Permission()
   auth2.setGroup(groupWebId)
   t.equal(auth2.group, groupWebId)
   t.throws(function () {
@@ -109,12 +109,12 @@ test('an Authorization can only have either an agent or a group', t => {
 })
 
 test('acl.WRITE implies acl.APPEND', t => {
-  let auth = new Authorization()
+  let auth = new Permission()
   auth.addMode(acl.WRITE)
   t.ok(auth.allowsWrite())
   t.ok(auth.allowsAppend(), 'Adding Write mode implies granting Append mode')
   // But not the other way around
-  auth = new Authorization()
+  auth = new Permission()
   auth.addMode(acl.APPEND)
   t.ok(auth.allowsAppend(), 'Adding Append mode failed')
   t.notOk(auth.allowsWrite(), 'Adding Append mode should not grant Write mode')
@@ -128,23 +128,23 @@ test('acl.WRITE implies acl.APPEND', t => {
   t.end()
 })
 
-test('an Authorization can grant Public access', t => {
-  let auth = new Authorization()
-  t.notOk(auth.isPublic(), 'An authorization is not public access by default')
+test('an Permission can grant Public access', t => {
+  let auth = new Permission()
+  t.notOk(auth.isPublic(), 'An permission is not public access by default')
 
   auth.setPublic()
   t.ok(auth.isPublic(), 'setPublic() results in public access')
   t.equal(auth.group, acl.EVERYONE)
   t.notOk(auth.agent)
 
-  auth = new Authorization()
+  auth = new Permission()
   auth.setGroup(acl.EVERYONE)
   t.ok(auth.isPublic(),
     'Adding group access to everyone should result in public access')
-  t.ok(auth.group, 'Public access authorization is a group authorization')
+  t.ok(auth.group, 'Public access permission is a group permission')
   t.notOk(auth.agent, 'A public access auth should have a null agent')
 
-  auth = new Authorization()
+  auth = new Permission()
   auth.setAgent(acl.EVERYONE)
   t.ok(auth.isPublic(),
     'Setting the agent to everyone should be the same as setPublic()')
@@ -152,17 +152,17 @@ test('an Authorization can grant Public access', t => {
 })
 
 test('an webId is either the agent or the group id', t => {
-  let auth = new Authorization()
+  let auth = new Permission()
   auth.setAgent(agentWebId)
   t.equal(auth.webId(), auth.agent)
-  auth = new Authorization()
+  auth = new Permission()
   auth.setGroup(groupWebId)
   t.equal(auth.webId(), auth.group)
   t.end()
 })
 
-test('hashFragment() on an incomplete authorization should fail', t => {
-  let auth = new Authorization()
+test('hashFragment() on an incomplete permission should fail', t => {
+  let auth = new Permission()
   t.throws(function () {
     auth.hashFragment()
   }, 'hashFragment() should fail if both webId AND resourceUrl are missing')
@@ -173,9 +173,9 @@ test('hashFragment() on an incomplete authorization should fail', t => {
   t.end()
 })
 
-test('Authorization.isValid() test', t => {
-  let auth = new Authorization()
-  t.notOk(auth.isValid(), 'An empty authorization should not be valid')
+test('Permission.isValid() test', t => {
+  let auth = new Permission()
+  t.notOk(auth.isValid(), 'An empty permission should not be valid')
   auth.resourceUrl = resourceUrl
   t.notOk(auth.isValid())
   auth.setAgent(agentWebId)
@@ -188,8 +188,8 @@ test('Authorization.isValid() test', t => {
   t.end()
 })
 
-test('Authorization origins test', t => {
-  let auth = new Authorization()
+test('Permission origins test', t => {
+  let auth = new Permission()
   let origin = 'https://example.com/'
   auth.addOrigin(origin)
   t.deepEqual(auth.allOrigins(), [origin])
@@ -200,86 +200,86 @@ test('Authorization origins test', t => {
   t.end()
 })
 
-test('Comparing newly constructed Authorizations', t => {
-  let auth1 = new Authorization()
-  let auth2 = new Authorization()
+test('Comparing newly constructed Permissions', t => {
+  let auth1 = new Permission()
+  let auth2 = new Permission()
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations, for a resource', t => {
-  let auth1 = new Authorization(resourceUrl)
-  let auth2 = new Authorization()
+test('Comparing Permissions, for a resource', t => {
+  let auth1 = new Permission(resourceUrl)
+  let auth2 = new Permission()
   t.notOk(auth1.equals(auth2))
   auth2.resourceUrl = resourceUrl
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations setting Agent', t => {
-  let auth1 = new Authorization()
+test('Comparing Permissions setting Agent', t => {
+  let auth1 = new Permission()
   auth1.setAgent(agentWebId)
-  let auth2 = new Authorization()
+  let auth2 = new Permission()
   t.notOk(auth1.equals(auth2))
   auth2.setAgent(agentWebId)
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations with same permissions', t => {
-  let auth1 = new Authorization()
+test('Comparing Permissions with same permissions', t => {
+  let auth1 = new Permission()
   auth1.addMode([acl.READ, acl.WRITE])
-  let auth2 = new Authorization()
+  let auth2 = new Permission()
   t.notOk(auth1.equals(auth2))
   auth2.addMode([acl.READ, acl.WRITE])
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations with resource, also permission', t => {
-  let auth1 = new Authorization(resourceUrl, acl.INHERIT)
-  let auth2 = new Authorization(resourceUrl)
+test('Comparing Permissions with resource, also permission', t => {
+  let auth1 = new Permission(resourceUrl, acl.INHERIT)
+  let auth2 = new Permission(resourceUrl)
   t.notOk(auth1.equals(auth2))
   auth2.inherited = acl.INHERIT
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations with email', t => {
-  let auth1 = new Authorization()
+test('Comparing Permissions with email', t => {
+  let auth1 = new Permission()
   auth1.addMailTo('alice@example.com')
-  let auth2 = new Authorization()
+  let auth2 = new Permission()
   t.notOk(auth1.equals(auth2))
   auth2.addMailTo('alice@example.com')
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Comparing Authorizations with origin', t => {
+test('Comparing Permissions with origin', t => {
   let origin = 'https://example.com/'
-  let auth1 = new Authorization()
+  let auth1 = new Permission()
   auth1.addOrigin(origin)
-  let auth2 = new Authorization()
+  let auth2 = new Permission()
   t.notOk(auth1.equals(auth2))
   auth2.addOrigin(origin)
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Authorization.clone() test', t => {
-  let auth1 = new Authorization(resourceUrl, acl.INHERIT)
+test('Permission.clone() test', t => {
+  let auth1 = new Permission(resourceUrl, acl.INHERIT)
   auth1.addMode([acl.READ, acl.WRITE])
   let auth2 = auth1.clone()
   t.ok(auth1.equals(auth2))
   t.end()
 })
 
-test('Authorization serialize group test', t => {
-  let auth = new Authorization(resourceUrl)
+test('Permission serialize group test', t => {
+  let auth = new Permission(resourceUrl)
   auth.addMode(acl.READ)
   let groupUrl = 'https://example.com/work-group'
   auth.setGroup(groupUrl)
-  // Serialize the authorization
+  // Serialize the permission
   let triples = auth.rdfStatements(rdf)
   let groupTriple = triples.find((triple) => {
     return triple.predicate.equals(ns.acl('agentGroup'))

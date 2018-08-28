@@ -4,7 +4,7 @@
  */
 
 var PermissionSet = require('./permission-set')
-var Authorization = require('./authorization')
+var Permission = require('./permission')
 var aclModes = require('./modes')
 
 /**
@@ -79,7 +79,7 @@ function getPermissions (resourceUrl, webClient, rdf) {
 module.exports.clearPermissions = clearPermissions
 module.exports.getPermissions = getPermissions
 module.exports.PermissionSet = PermissionSet
-module.exports.Authorization = Authorization
+module.exports.Permission = Permission
 
 // Export all the acl-related constants and modes at the top (index) level
 Object.assign(module.exports, aclModes.acl)

@@ -12,6 +12,6 @@ test('Module exports test', t => {
   t.ok(acls.getPermissions)
   t.ok(acls.clearPermissions)
   t.ok(acls.PermissionSet)
-  t.ok(acls.Authorization)
+  t.ok(acls.Permission)
   t.end()
 })
