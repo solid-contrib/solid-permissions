@@ -153,10 +153,15 @@ class Permission {
    * @return {Permission} Returns self, chainable.
    */
   addOrigin (origin) {
+    if (!origin) {
+      return this
+    }
     if (Array.isArray(origin)) {
-      origin.forEach((ea) => {
-        this.addOriginSingle(ea)
-      })
+      if (origin.length > 0) {
+	origin.forEach((ea) => {
+          this.addOriginSingle(ea)
+	})
+      }
     } else {
       this.addOriginSingle(origin)
     }
