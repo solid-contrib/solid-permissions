@@ -1,8 +1,8 @@
 'use strict'
 /**
- * Models a single Authorization, as part of a PermissionSet.
+ * Models a single Permission, as part of a PermissionSet.
  * @see https://github.com/solid/web-access-control-spec for details.
- * @module authorization
+ * @module permission
  */
 
 const vocab = require('solid-namespace')
@@ -10,31 +10,31 @@ const { acl } = require('./modes')
 const GroupListing = require('./group-listing')
 
 /**
- * Models an individual authorization object, for a single resource and for
+ * Models an individual permission object, for a single resource and for
  * a single webId (either agent or group). See the comments at the top
  * of the PermissionSet module for design assumptions.
  * Low-level, not really meant to be instantiated directly. Use
  * `permissionSet.addPermission()` instead.
- * @class Authorization
+ * @class Permission
  */
-class Authorization {
+class Permission {
   /**
    * @param resourceUrl {String} URL of the resource (`acl:accessTo`) for which
-   *   this authorization is intended.
-   * @param [inherited=false] {Boolean} Should this authorization be inherited (contain
+   *   this permission is intended.
+   * @param [inherited=false] {Boolean} Should this permission be inherited (contain
    *   `acl:default`). Used for container ACLs.
    * @constructor
    */
   constructor (resourceUrl, inherited = false) {
     /**
      * Hashmap of all of the access modes (`acl:Write` etc) granted to an agent
-     * or group in this authorization. Modified via `addMode()` and `removeMode()`
+     * or group in this permission. Modified via `addMode()` and `removeMode()`
      * @property accessModes
      * @type {Object}
      */
     this.accessModes = {}
     /**
-     * Type of authorization, either for a specific resource ('accessTo'),
+     * Type of permission, either for a specific resource ('accessTo'),
      * or to be inherited by all downstream resources ('default')
      * @property accessType
      * @type {String} Either 'accessTo' or 'default'
@@ -43,7 +43,7 @@ class Authorization {
       ? acl.DEFAULT
       : acl.ACCESS_TO
     /**
-     * URL of an agent's WebID (`acl:agent`). Inside an authorization, mutually
+     * URL of an agent's WebID (`acl:agent`). Inside an permission, mutually
      * exclusive with the `group` property. Set via `setAgent()`.
      * @property agent
      * @type {String}
@@ -51,14 +51,14 @@ class Authorization {
     this.agent = null
     /**
      * URL of a group resource (`acl:agentGroup` or `acl:agentClass`). Inside an
-     * authorization, mutually exclusive with the `agent` property.
+     * permission, mutually exclusive with the `agent` property.
      * Set via `setGroup()`.
      * @property group
      * @type {String}
      */
     this.group = null
     /**
-     * Does this authorization apply to the contents of a container?
+     * Does this permission apply to the contents of a container?
      * (`acl:default`). Not used with non-container resources.
      * @property inherited
      * @type {Boolean}
@@ -80,15 +80,15 @@ class Authorization {
      */
     this.originsAllowed = {}
     /**
-     * URL of the resource for which this authorization applies. (`acl:accessTo`)
+     * URL of the resource for which this permission applies. (`acl:accessTo`)
      * @property resourceUrl
      * @type {String}
      */
     this.resourceUrl = resourceUrl
     /**
-     * Should this authorization be serialized? (When writing back to an ACL
+     * Should this permission be serialized? (When writing back to an ACL
      * resource, for example.) Used for implied (rather than explicit)
-     * authorization, such as ones that are derived from acl:Control statements.
+     * permission, such as ones that are derived from acl:Control statements.
      * @property virtual
      * @type {Boolean}
      */
@@ -96,7 +96,7 @@ class Authorization {
   }
 
   /**
-   * Adds a given `mailto:` alias to this authorization.
+   * Adds a given `mailto:` alias to this permission.
    * @method addMailTo
    * @param agent {String|Statement} Agent URL (or RDF `acl:agent` statement).
    */
@@ -112,11 +112,11 @@ class Authorization {
   }
 
   /**
-   * Adds one or more access modes (`acl:mode` statements) to this authorization.
+   * Adds one or more access modes (`acl:mode` statements) to this permission.
    * @method addMode
    * @param accessMode {String|Statement|Array<String>|Array<Statement>} One or
    *   more access modes, each as either a uri, or an RDF statement.
-   * @return {Authorization} Returns self, chainable.
+   * @return {Permission} Returns self, chainable.
    */
   addMode (accessMode) {
     if (Array.isArray(accessMode)) {
@@ -146,11 +146,11 @@ class Authorization {
 
   /**
    * Adds one or more allowed origins (`acl:origin` statements) to this
-   * authorization.
+   * permission.
    * @method addOrigin
    * @param origin {String|Statement|Array<String>|Array<Statement>} One or
    *   more origins, each as either a uri, or an RDF statement.
-   * @return {Authorization} Returns self, chainable.
+   * @return {Permission} Returns self, chainable.
    */
   addOrigin (origin) {
     if (Array.isArray(origin)) {
@@ -179,7 +179,7 @@ class Authorization {
   }
 
   /**
-   * Returns a list of all access modes for this authorization.
+   * Returns a list of all access modes for this permission.
    * @method allModes
    * @return {Array<String>}
    */
@@ -188,7 +188,7 @@ class Authorization {
   }
 
   /**
-   * Returns a list of all allowed origins for this authorization.
+   * Returns a list of all allowed origins for this permission.
    * @method allOrigins
    * @return {Array<String>}
    */
@@ -197,7 +197,7 @@ class Authorization {
   }
 
   /**
-   * Tests whether this authorization grant the specified access mode
+   * Tests whether this permission grant the specified access mode
    * @param accessMode {String|NamedNode} Either a named node for the access
    *   mode or a string key ('write', 'read' etc) that maps to that mode.
    * @return {Boolean}
@@ -211,7 +211,7 @@ class Authorization {
     return this.accessModes[accessMode]
   }
   /**
-   * Does this authorization grant access to requests coming from given origin?
+   * Does this permission grant access to requests coming from given origin?
    * @method allowsOrigin
    * @param origin {String}
    * @return {Boolean}
@@ -221,7 +221,7 @@ class Authorization {
   }
 
   /**
-   * Does this authorization grant `acl:Read` access mode?
+   * Does this permission grant `acl:Read` access mode?
    * @method allowsRead
    * @return {Boolean}
    */
@@ -230,7 +230,7 @@ class Authorization {
   }
 
   /**
-   * Does this authorization grant `acl:Write` access mode?
+   * Does this permission grant `acl:Write` access mode?
    * @method allowsWrite
    * @return {Boolean}
    */
@@ -239,7 +239,7 @@ class Authorization {
   }
 
   /**
-   * Does this authorization grant `acl:Append` access mode?
+   * Does this permission grant `acl:Append` access mode?
    * @method allowsAppend
    * @return {Boolean}
    */
@@ -248,7 +248,7 @@ class Authorization {
   }
 
   /**
-   * Does this authorization grant `acl:Control` access mode?
+   * Does this permission grant `acl:Control` access mode?
    * @method allowsControl
    * @return {Boolean}
    */
@@ -257,18 +257,18 @@ class Authorization {
   }
 
   /**
-   * Returns a deep copy of this authorization.
-   * @return {Authorization}
+   * Returns a deep copy of this permission.
+   * @return {Permission}
    */
   clone () {
-    let auth = new Authorization()
-    Object.assign(auth, JSON.parse(JSON.stringify(this)))
-    return auth
+    let perm = new Permission()
+    Object.assign(perm, JSON.parse(JSON.stringify(this)))
+    return perm
   }
 
   /**
-   * Compares this authorization with another one.
-   * Authorizations are equal iff they:
+   * Compares this permission with another one.
+   * Permissions are equal iff they:
    *   - Are for the same agent or group
    *   - Are intended for the same resourceUrl
    *   - Grant the same access modes
@@ -276,32 +276,32 @@ class Authorization {
    *   - Contain the same `mailto:` agent aliases.
    *   - Has the same allowed origins
    * @method equals
-   * @param auth {Authorization}
+   * @param perm {Permission}
    * @return {Boolean}
    */
-  equals (auth) {
-    let sameAgent = this.agent === auth.agent
-    let sameGroup = this.group === auth.group
-    let sameUrl = this.resourceUrl === auth.resourceUrl
+  equals (perm) {
+    let sameAgent = this.agent === perm.agent
+    let sameGroup = this.group === perm.group
+    let sameUrl = this.resourceUrl === perm.resourceUrl
     let myModeKeys = Object.keys(this.accessModes)
-    let authModeKeys = Object.keys(auth.accessModes)
-    let sameNumberModes = myModeKeys.length === authModeKeys.length
+    let permModeKeys = Object.keys(perm.accessModes)
+    let sameNumberModes = myModeKeys.length === permModeKeys.length
     let sameInherit =
-      JSON.stringify(this.inherited) === JSON.stringify(auth.inherited)
+      JSON.stringify(this.inherited) === JSON.stringify(perm.inherited)
     let sameModes = true
     myModeKeys.forEach((key) => {
-      if (!auth.accessModes[ key ]) { sameModes = false }
+      if (!perm.accessModes[ key ]) { sameModes = false }
     })
-    let sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(auth.mailTo)
+    let sameMailTos = JSON.stringify(this.mailTo) === JSON.stringify(perm.mailTo)
     let sameOrigins =
-      JSON.stringify(this.originsAllowed) === JSON.stringify(auth.originsAllowed)
+      JSON.stringify(this.originsAllowed) === JSON.stringify(perm.originsAllowed)
     return sameAgent && sameGroup && sameUrl && sameNumberModes && sameModes &&
       sameInherit && sameMailTos && sameOrigins
   }
 
   /**
    * Returns a hashed combination of agent/group webId and resourceUrl. Used
-   * internally as a key to store this authorization in a PermissionSet.
+   * internally as a key to store this permission in a PermissionSet.
    * @method hashFragment
    * @private
    * @throws {Error} Errors if either the webId or the resourceUrl are not set.
@@ -309,7 +309,7 @@ class Authorization {
    */
   hashFragment () {
     if (!this.webId || !this.resourceUrl) {
-      throw new Error('Cannot call hashFragment() on an incomplete authorization')
+      throw new Error('Cannot call hashFragment() on an incomplete permission')
     }
     let hashFragment = hashFragmentFor(this.webId(), this.resourceUrl,
       this.accessType)
@@ -317,7 +317,7 @@ class Authorization {
   }
 
   /**
-   * Returns whether or not this authorization is for an agent (vs a group).
+   * Returns whether or not this permission is for an agent (vs a group).
    * @method isAgent
    * @return {Boolean} Truthy value if agent is set
    */
@@ -326,7 +326,7 @@ class Authorization {
   }
 
   /**
-   * Returns whether or not this authorization is empty (that is, whether it has
+   * Returns whether or not this permission is empty (that is, whether it has
    * any access modes like Read, Write, etc, set on it)
    * @method isEmpty
    * @return {Boolean}
@@ -336,7 +336,7 @@ class Authorization {
   }
 
   /**
-   * Is this authorization intended for the foaf:Agent group (that is, everyone)?
+   * Is this permission intended for the foaf:Agent group (that is, everyone)?
    * @method isPublic
    * @return {Boolean}
    */
@@ -345,7 +345,7 @@ class Authorization {
   }
 
   /**
-   * Returns whether or not this authorization is for a group (vs an agent).
+   * Returns whether or not this permission is for a group (vs an agent).
    * @method isGroup
    * @return {Boolean} Truthy value if group is set
    */
@@ -354,7 +354,7 @@ class Authorization {
   }
 
   /**
-   * Returns whether this authorization is for a container and should be inherited
+   * Returns whether this permission is for a container and should be inherited
    * (that is, contain `acl:default`).
    * This is a helper function (instead of the raw attribute) to match the rest
    * of the api.
@@ -366,7 +366,7 @@ class Authorization {
   }
 
   /**
-   * Returns whether this authorization is valid (ready to be serialized into
+   * Returns whether this permission is valid (ready to be serialized into
    * an RDF graph ACL resource). This requires all three of the following:
    *   1. Either an agent or an agentClass/group (returned by `webId()`)
    *   2. A resource URL (`acl:accessTo`)
@@ -380,36 +380,36 @@ class Authorization {
   }
 
   /**
-   * Merges the access modes of a given authorization with the access modes of
+   * Merges the access modes of a given permission with the access modes of
    * this one (Set union).
    * @method mergeWith
-   * @param auth
-   * @throws {Error} Error if the other authorization is for a different webId
+   * @param perm
+   * @throws {Error} Error if the other permission is for a different webId
    *   or resourceUrl (`acl:accessTo`)
    */
-  mergeWith (auth) {
-    if (this.hashFragment() !== auth.hashFragment()) {
-      throw new Error('Cannot merge authorizations with different agent id or resource url (accessTo)')
+  mergeWith (perm) {
+    if (this.hashFragment() !== perm.hashFragment()) {
+      throw new Error('Cannot merge permissions with different agent id or resource url (accessTo)')
     }
-    for (var accessMode in auth.accessModes) {
+    for (var accessMode in perm.accessModes) {
       this.addMode(accessMode)
     }
   }
 
   /**
-   * Returns an array of RDF statements representing this authorization.
+   * Returns an array of RDF statements representing this permission.
    * Used by `PermissionSet.serialize()`.
    * @method rdfStatements
    * @param rdf {RDF} RDF Library
    * @return {Array<Triple>} List of RDF statements representing this Auth,
-   *   or an empty array if this authorization is invalid.
+   *   or an empty array if this permission is invalid.
    */
   rdfStatements (rdf) {
-    // Make sure the authorization has at least one agent/group and `accessTo`
+    // Make sure the permission has at least one agent/group and `accessTo`
     if (!this.webId() || !this.resourceUrl) {
-      return [] // This Authorization is invalid, return empty array
+      return [] // This Permission is invalid, return empty array
     }
-    // Virtual / implied authorizations are not serialized
+    // Virtual / implied permissions are not serialized
     if (this.virtual) {
       return []
     }
@@ -461,7 +461,7 @@ class Authorization {
   }
 
   /**
-   * Removes one or more access modes from this authorization.
+   * Removes one or more access modes from this permission.
    * @method removeMode
    * @param accessMode {String|Statement|Array<String>|Array<Statement>} URL
    *   representation of the access mode, or an RDF `acl:mode` triple.
@@ -479,7 +479,7 @@ class Authorization {
   }
 
   /**
-   * Removes a single access mode from this authorization. Internal use only
+   * Removes a single access mode from this permission. Internal use only
    * (used by `removeMode()`).
    * @method removeModeSingle
    * @private
@@ -493,7 +493,7 @@ class Authorization {
   }
 
   /**
-   * Removes one or more allowed origins from this authorization.
+   * Removes one or more allowed origins from this permission.
    * @method removeOrigin
    * @param origin {String|Statement|Array<String>|Array<Statement>} URL
    *   representation of the access mode, or an RDF `acl:mode` triple.
@@ -511,7 +511,7 @@ class Authorization {
   }
 
   /**
-   * Removes a single allowed origin from this authorization. Internal use only
+   * Removes a single allowed origin from this permission. Internal use only
    * (used by `removeOrigin()`).
    * @method removeOriginSingle
    * @private
@@ -525,7 +525,7 @@ class Authorization {
   }
 
   /**
-   * Sets the agent WebID for this authorization.
+   * Sets the agent WebID for this permission.
    * @method setAgent
    * @param agent {string|Quad|GroupListing} Agent URL (or `acl:agent` RDF triple).
    */
@@ -540,7 +540,7 @@ class Authorization {
     if (agent === acl.EVERYONE) {
       this.setPublic()
     } else if (this.group) {
-      throw new Error('Cannot set agent, authorization already has a group set')
+      throw new Error('Cannot set agent, permission already has a group set')
     }
     if (agent.startsWith('mailto:')) {
       this.addMailTo(agent)
@@ -550,14 +550,14 @@ class Authorization {
   }
 
   /**
-   * Sets the group WebID for this authorization.
+   * Sets the group WebID for this permission.
    * @method setGroup
    * @param group {string|Triple|GroupListing} Group URL (or `acl:agentClass` RDF
    *   triple).
    */
   setGroup (group) {
     if (this.agent) {
-      throw new Error('Cannot set group, authorization already has an agent set')
+      throw new Error('Cannot set group, permission already has an agent set')
     }
     if (group instanceof GroupListing) {
       group = group.listing
@@ -570,7 +570,7 @@ class Authorization {
   }
 
   /**
-   * Sets the authorization's group to `foaf:Agent`. Convenience method.
+   * Sets the permission's group to `foaf:Agent`. Convenience method.
    * @method setPublic
    */
   setPublic () {
@@ -578,7 +578,7 @@ class Authorization {
   }
 
   /**
-   * Returns the agent or group's WebID for this authorization.
+   * Returns the agent or group's WebID for this permission.
    * @method webId
    * @return {String}
    */
@@ -588,12 +588,12 @@ class Authorization {
 }
 // --- Standalone (non-instance) functions --
 /**
- * Utility method that creates a hash fragment key for this authorization.
- * Used with graph serialization to RDF, and as a key to store authorizations
+ * Utility method that creates a hash fragment key for this permission.
+ * Used with graph serialization to RDF, and as a key to store permissions
  * in a PermissionSet. Exported (mainly for use in PermissionSet).
  * @method hashFragmentFor
  * @param webId {String} Agent or group web id
- * @param resourceUrl {String} Resource or container URL for this authorization
+ * @param resourceUrl {String} Resource or container URL for this permission
  * @param [authType='accessTo'] {String} Either 'accessTo' or 'default'
  * @return {String}
  */
@@ -603,6 +603,6 @@ function hashFragmentFor (webId, resourceUrl,
   return hashKey
 }
 
-Authorization.hashFragmentFor = hashFragmentFor
+Permission.hashFragmentFor = hashFragmentFor
 
-module.exports = Authorization
+module.exports = Permission

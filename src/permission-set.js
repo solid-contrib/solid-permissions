@@ -1,22 +1,22 @@
 'use strict'
 /**
  * @module permission-set
- * Models the set of Authorizations in a given .acl resource.
+ * Models the set of Permissions in a given .acl resource.
  * @see https://github.com/solid/web-access-control-spec for details.
  * The working assumptions here are:
  *   - Model the various permissions in an ACL resource as a set of unique
- *     authorizations, with one agent (or one group), and only
- *     one resource (acl:accessTo or acl:default) per authorization.
+ *     permissions, with one agent (or one group), and only
+ *     one resource (acl:accessTo or acl:default) per permission.
  *   - If the source RDF of the ACL resource has multiple agents or multiple
  *     resources in one authorization, separate them into multiple separate
- *     Authorization objects (with one agent/group and one resourceUrl each)
- *   - A single Authorization object can grant access to multiple modes (read,
+ *     Permission objects (with one agent/group and one resourceUrl each)
+ *   - A single Permission object can grant access to multiple modes (read,
  *     write, control, etc)
- *   - By default, all the authorizations in a container's ACL will be marked
+ *   - By default, all the permissions in a container's ACL will be marked
  *     as 'to be inherited', that is will have `acl:default` set.
  */
 
-const Authorization = require('./authorization')
+const Permission = require('./permission')
 const GroupListing = require('./group-listing')
 const { acl } = require('./modes')
 const vocab = require('solid-namespace')
@@ -31,7 +31,7 @@ const RESOURCE = 'resource'
 const CONTAINER = 'container'
 
 /**
- * Agent type index names (used by findAuthByAgent() etc)
+ * Agent type index names (used by findPermByAgent() etc)
  */
 const AGENT_INDEX = 'agents'
 const GROUP_INDEX = 'groups'
@@ -57,12 +57,12 @@ class PermissionSet {
    */
   constructor (resourceUrl, aclUrl, isContainer, options = {}) {
     /**
-     * Hashmap of all Authorizations in this permission set, keyed by a hashed
+     * Hashmap of all Permissions in this permission set, keyed by a hashed
      * combination of an agent's/group's webId and the resourceUrl.
-     * @property authorizations
+     * @property permissions
      * @type {Object}
      */
-    this.authorizations = {}
+    this.permissions = {}
     /**
      * The URL of the corresponding ACL resource, at which these permissions will
      * be saved.
@@ -78,7 +78,7 @@ class PermissionSet {
     this.host = options.host
     /**
      * Initialize the agents / groups indexes.
-     * For each index type (`agents`, `groups`), authorizations are indexed
+     * For each index type (`agents`, `groups`), permissions are indexed
      * first by `agentId`, then by access type (direct or inherited), and
      * lastly by resource. For example:
      *
@@ -86,20 +86,20 @@ class PermissionSet {
      *   agents: {
      *     'https://alice.com/#i': {
      *       accessTo: {
-     *         'https://alice.com/file1': authorization1
+     *         'https://alice.com/file1': permission1
      *       },
      *       default: {
-     *         'https://alice.com/': authorization2
+     *         'https://alice.com/': permission2
      *       }
      *     }
      *   }
      *   ```
-     * @property authsBy
+     * @property permsBy
      * @type {Object}
      */
-    this.authsBy = {
-      'agents': {}, // Auths by agent webId
-      'groups': {} // Auths by group webId (also includes Public / EVERYONE)
+    this.permsBy = {
+      'agents': {}, // Perms by agent webId
+      'groups': {} // Perms by group webId (also includes Public / EVERYONE)
     }
     /**
      * Cache of GroupListing objects, by group webId. Populated by `loadGroups()`.
@@ -116,7 +116,7 @@ class PermissionSet {
     /**
      * Whether this permission set is for a 'container' or a 'resource'.
      * Determines whether or not the inherit/'acl:default' attribute is set on
-     * all its Authorizations.
+     * all its Permissions.
      * @property resourceType
      * @type {String}
      */
@@ -160,40 +160,40 @@ class PermissionSet {
   }
 
   /**
-   * Adds a given Authorization instance to the permission set.
+   * Adds a given Permission instance to the permission set.
    * Low-level function, clients should use `addPermission()` instead, in most
    * cases.
-   * @method addAuthorization
+   * @method addSinglePermission
    * @private
-   * @param auth {Authorization}
+   * @param perm {Permission}
    * @return {PermissionSet} Returns self (chainable)
    */
-  addAuthorization (auth) {
-    var hashFragment = auth.hashFragment()
-    if (hashFragment in this.authorizations) {
-      // An authorization for this agent and resource combination already exists
+  addSinglePermission (perm) {
+    var hashFragment = perm.hashFragment()
+    if (hashFragment in this.permissions) {
+      // An permission for this agent and resource combination already exists
       // Merge the incoming access modes with its existing ones
-      this.authorizations[hashFragment].mergeWith(auth)
+      this.permissions[hashFragment].mergeWith(perm)
     } else {
-      this.authorizations[hashFragment] = auth
+      this.permissions[hashFragment] = perm
     }
-    if (!auth.virtual && auth.allowsControl()) {
+    if (!perm.virtual && perm.allowsControl()) {
       // If acl:Control is involved, ensure implicit rules for the .acl resource
-      this.addControlPermissionsFor(auth)
+      this.addControlPermissionsFor(perm)
     }
     // Create the appropriate indexes
-    this.addToAgentIndex(auth)
-    if (auth.isPublic() || auth.isGroup()) {
-      this.addToGroupIndex(auth)
+    this.addToAgentIndex(perm)
+    if (perm.isPublic() || perm.isGroup()) {
+      this.addToGroupIndex(perm)
     }
     return this
   }
 
   /**
-   * Creates an Authorization with the given parameters, and passes it on to
-   * `addAuthorization()` to be added to this PermissionSet.
+   * Creates an Permission with the given parameters, and passes it on to
+   * `addPermission()` to be added to this PermissionSet.
    * Essentially a convenience factory method.
-   * @method addAuthorizationFor
+   * @method addPermissionFor
    * @private
    * @param resourceUrl {String}
    * @param inherit {Boolean}
@@ -203,38 +203,38 @@ class PermissionSet {
    * @param [mailTos=[]] {Array<String>}
    * @return {PermissionSet} Returns self, chainable
    */
-  addAuthorizationFor (resourceUrl, inherit, agent, accessModes = [],
+  addPermissionFor (resourceUrl, inherit, agent, accessModes = [],
     origins = [], mailTos = []) {
-    let auth = new Authorization(resourceUrl, inherit)
+    let perm = new Permission(resourceUrl, inherit)
     if (agent instanceof GroupListing) {
-      auth.setGroup(agent.listing)
+      perm.setGroup(agent.listing)
     } else {
-      auth.setAgent(agent)
+      perm.setAgent(agent)
     }
-    auth.addMode(accessModes)
-    auth.addOrigin(origins)
+    perm.addMode(accessModes)
+    perm.addOrigin(origins)
     mailTos.forEach(mailTo => {
-      auth.addMailTo(mailTo)
+      perm.addMailTo(mailTo)
     })
-    this.addAuthorization(auth)
+    this.addSinglePermission(perm)
     return this
   }
 
   /**
-   * Adds a virtual (will not be serialized to RDF) authorization giving
+   * Adds a virtual (will not be serialized to RDF) permission giving
    * Read/Write/Control access to the corresponding ACL resource if acl:Control
    * is encountered in the actual source ACL.
    * @method addControlPermissionsFor
    * @private
-   * @param auth {Authorization} Authorization containing an acl:Control access
+   * @param perm {Permission} Permission containing an acl:Control access
    *   mode.
    */
-  addControlPermissionsFor (auth) {
-    let impliedAuth = auth.clone()
-    impliedAuth.resourceUrl = this.aclUrlFor(auth.resourceUrl)
-    impliedAuth.virtual = true
-    impliedAuth.addMode(acl.ALL_MODES)
-    this.addAuthorization(impliedAuth)
+  addControlPermissionsFor (perm) {
+    let impliedPerm = perm.clone()
+    impliedPerm.resourceUrl = this.aclUrlFor(perm.resourceUrl)
+    impliedPerm.virtual = true
+    impliedPerm.addMode(acl.ALL_MODES)
+    this.addSinglePermission(impliedPerm)
   }
 
   /**
@@ -248,10 +248,10 @@ class PermissionSet {
     if (!this.resourceUrl) {
       throw new Error('Cannot add a permission to a PermissionSet with no resourceUrl')
     }
-    var auth = new Authorization(this.resourceUrl, this.isAuthInherited())
-    auth.setGroup(webId)
-    auth.addMode(accessMode)
-    this.addAuthorization(auth)
+    var perm = new Permission(this.resourceUrl, this.isPermInherited())
+    perm.setGroup(webId)
+    perm.addMode(accessMode)
+    this.addSinglePermission(perm)
     return this
   }
 
@@ -273,28 +273,28 @@ class PermissionSet {
     if (!this.resourceUrl) {
       throw new Error('Cannot add a permission to a PermissionSet with no resourceUrl')
     }
-    var auth = new Authorization(this.resourceUrl, this.isAuthInherited())
-    auth.setAgent(webId)
-    auth.addMode(accessMode)
+    var perm = new Permission(this.resourceUrl, this.isPermInherited())
+    perm.setAgent(webId)
+    perm.addMode(accessMode)
     if (origin) {
-      auth.addOrigin(origin)
+      perm.addOrigin(origin)
     }
-    this.addAuthorization(auth)
+    this.addSinglePermission(perm)
     return this
   }
 
   /**
-   * Adds a given authorization to the "lookup by agent id" index.
-   * Enables lookups via `findAuthByAgent()`.
+   * Adds a given permission to the "lookup by agent id" index.
+   * Enables lookups via `findPermByAgent()`.
    * @method addToAgentIndex
    * @private
-   * @param authorization {Authorization}
+   * @param permission {Permission}
    */
-  addToAgentIndex (authorization) {
-    let webId = authorization.webId()
-    let accessType = authorization.accessType
-    let resourceUrl = authorization.resourceUrl
-    let agents = this.authsBy.agents
+  addToAgentIndex (permission) {
+    let webId = permission.webId()
+    let accessType = permission.accessType
+    let resourceUrl = permission.resourceUrl
+    let agents = this.permsBy.agents
     if (!agents[webId]) {
       agents[webId] = {}
     }
@@ -302,24 +302,24 @@ class PermissionSet {
       agents[webId][accessType] = {}
     }
     if (!agents[webId][accessType][resourceUrl]) {
-      agents[webId][accessType][resourceUrl] = authorization
+      agents[webId][accessType][resourceUrl] = permission
     } else {
-      agents[webId][accessType][resourceUrl].mergeWith(authorization)
+      agents[webId][accessType][resourceUrl].mergeWith(permission)
     }
   }
 
   /**
-   * Adds a given authorization to the "lookup by group id" index.
-   * Enables lookups via `findAuthByAgent()`.
+   * Adds a given permission to the "lookup by group id" index.
+   * Enables lookups via `findPermByAgent()`.
    * @method addToGroupIndex
    * @private
-   * @param authorization {Authorization}
+   * @param permission {Permission}
    */
-  addToGroupIndex (authorization) {
-    let webId = authorization.webId()
-    let accessType = authorization.accessType
-    let resourceUrl = authorization.resourceUrl
-    let groups = this.authsBy.groups
+  addToGroupIndex (permission) {
+    let webId = permission.webId()
+    let accessType = permission.accessType
+    let resourceUrl = permission.resourceUrl
+    let groups = this.permsBy.groups
     if (!groups[webId]) {
       groups[webId] = {}
     }
@@ -327,26 +327,26 @@ class PermissionSet {
       groups[webId][accessType] = {}
     }
     if (!groups[webId][accessType][resourceUrl]) {
-      groups[webId][accessType][resourceUrl] = authorization
+      groups[webId][accessType][resourceUrl] = permission
     } else {
-      groups[webId][accessType][resourceUrl].mergeWith(authorization)
+      groups[webId][accessType][resourceUrl].mergeWith(permission)
     }
   }
 
   /**
-   * Returns a list of all the Authorizations that belong to this permission set.
+   * Returns a list of all the Permissions that belong to this permission set.
    * Mostly for internal use.
-   * @method allAuthorizations
-   * @return {Array<Authorization>}
+   * @method allPermissions
+   * @return {Array<Permission>}
    */
-  allAuthorizations () {
-    var authList = []
-    var auth
-    Object.keys(this.authorizations).forEach(authKey => {
-      auth = this.authorizations[authKey]
-      authList.push(auth)
+  allPermissions () {
+    var permList = []
+    var perm
+    Object.keys(this.permissions).forEach(permKey => {
+      perm = this.permissions[permKey]
+      permList.push(perm)
     })
-    return authList
+    return permList
   }
 
   /**
@@ -359,16 +359,16 @@ class PermissionSet {
    */
   allowsPublic (mode, resourceUrl) {
     resourceUrl = resourceUrl || this.resourceUrl
-    let publicAuth = this.findPublicAuth(resourceUrl)
-    if (!publicAuth) {
+    let publicPerm = this.findPublicPerm(resourceUrl)
+    if (!publicPerm) {
       return false
     }
-    return publicAuth.allowsMode(mode)
+    return publicPerm.allowsMode(mode)
   }
 
   /**
    * Returns an RDF graph representation of this permission set and all its
-   * Authorizations. Used by `save()`.
+   * Permissions. Used by `save()`.
    * @method buildGraph
    * @private
    * @param rdf {RDF} RDF Library
@@ -376,8 +376,8 @@ class PermissionSet {
    */
   buildGraph (rdf) {
     var graph = rdf.graph()
-    this.allAuthorizations().forEach(function (auth) {
-      graph.add(auth.rdfStatements(rdf))
+    this.allPermissions().forEach(function (perm) {
+      graph.add(perm.rdfStatements(rdf))
     })
     return graph
   }
@@ -405,18 +405,18 @@ class PermissionSet {
       debug('Public access allowed for ' + resourceUrl)
       return Promise.resolve(true)
     }
-    // Next, see if there is an individual authorization (for a user or a group)
+    // Next, see if there is an individual permission (for a user or a group)
     if (this.checkAccessForAgent(resourceUrl, agentId, accessMode)) {
       debug('Individual access granted for ' + resourceUrl)
       return Promise.resolve(true)
     }
-    // If there are no group authorizations, no need to proceed
+    // If there are no group permissions, no need to proceed
     if (!this.hasGroups()) {
-      debug('No groups authorizations exist')
+      debug('No groups permissions exist')
       return Promise.resolve(false)
     }
-    // Lastly, load the remote group listings, and check for group auth
-    debug('Check groups authorizations')
+    // Lastly, load the remote group listings, and check for group perm
+    debug('Check groups permissions')
 
     return this.loadGroups(options)
       .then(() => {
@@ -432,8 +432,8 @@ class PermissionSet {
    * @return {Boolean}
    */
   checkAccessForAgent (resourceUrl, agentId, accessMode) {
-    let auth = this.findAuthByAgent(agentId, resourceUrl)
-    let result = auth && this.checkOrigin(auth) && auth.allowsMode(accessMode)
+    let perm = this.findPermByAgent(agentId, resourceUrl)
+    let result = perm && this.checkOrigin(perm) && perm.allowsMode(accessMode)
     return result
   }
 
@@ -460,20 +460,20 @@ class PermissionSet {
   }
 
   /**
-   * Tests whether a given authorization allows operations from the current
+   * Tests whether a given permission allows operations from the current
    * request's `Origin` header. (The current request's origin and host are
    * passed in as options to the PermissionSet's constructor.)
-   * @param authorization {Authorization}
+   * @param permission {Permission}
    * @return {Boolean}
    */
-  checkOrigin (authorization) {
+  checkOrigin (permission) {
     if (!this.strictOrigin || // Enforcement turned off in server config
         !this.origin || // No origin - not a script, do not enforce origin
         this.origin === this.host) { // same origin is trusted
       return true
     }
     // If not same origin, check that the origin is in the explicit ACL list
-    return authorization.allowsOrigin(this.origin)
+    return permission.allowsOrigin(this.origin)
   }
 
   /**
@@ -515,18 +515,18 @@ class PermissionSet {
   }
 
   /**
-   * Returns the number of Authorizations in this permission set.
+   * Returns the number of Permissions in this permission set.
    * @method count
    * @return {Number}
    */
   get count () {
-    return Object.keys(this.authorizations).length
+    return Object.keys(this.permissions).length
   }
 
   /**
    * Returns whether or not this permission set is equal to another one.
    * A PermissionSet is considered equal to another one iff:
-   * - It has the same number of authorizations, and each of those authorizations
+   * - It has the same number of permissions, and each of those permissions
    *   has a corresponding one in the other set
    * - They are both intended for the same resource (have the same resourceUrl)
    * - They are both intended to be saved at the same aclUrl
@@ -538,36 +538,36 @@ class PermissionSet {
     var sameUrl = this.resourceUrl === ps.resourceUrl
     var sameAclUrl = this.aclUrl === ps.aclUrl
     var sameResourceType = this.resourceType === ps.resourceType
-    var myAuthKeys = Object.keys(this.authorizations)
-    var otherAuthKeys = Object.keys(ps.authorizations)
-    if (myAuthKeys.length !== otherAuthKeys.length) { return false }
-    var sameAuths = true
-    var myAuth, otherAuth
-    myAuthKeys.forEach(authKey => {
-      myAuth = this.authorizations[authKey]
-      otherAuth = ps.authorizations[authKey]
-      if (!otherAuth) {
-        sameAuths = false
+    var myPermKeys = Object.keys(this.permissions)
+    var otherPermKeys = Object.keys(ps.permissions)
+    if (myPermKeys.length !== otherPermKeys.length) { return false }
+    var samePerms = true
+    var myPerm, otherPerm
+    myPermKeys.forEach(permKey => {
+      myPerm = this.permissions[permKey]
+      otherPerm = ps.permissions[permKey]
+      if (!otherPerm) {
+        samePerms = false
       }
-      if (!myAuth.equals(otherAuth)) {
-        sameAuths = false
+      if (!myPerm.equals(otherPerm)) {
+        samePerms = false
       }
     })
-    return sameUrl && sameAclUrl && sameResourceType && sameAuths
+    return sameUrl && sameAclUrl && sameResourceType && samePerms
   }
 
   /**
-   * Finds and returns an authorization (stored in the 'find by agent' index)
+   * Finds and returns an permission (stored in the 'find by agent' index)
    * for a given agent (web id) and resource.
-   * @method findAuthByAgent
+   * @method findPermByAgent
    * @private
    * @param webId {String}
    * @param resourceUrl {String}
    * @param indexType {String} Either 'default' or 'accessTo'
-   * @return {Authorization}
+   * @return {Permission}
    */
-  findAuthByAgent (webId, resourceUrl, indexType = AGENT_INDEX) {
-    let index = this.authsBy[indexType]
+  findPermByAgent (webId, resourceUrl, indexType = AGENT_INDEX) {
+    let index = this.permsBy[indexType]
     if (!index[webId]) {
       // There are no permissions at all for this agent
       return false
@@ -603,36 +603,36 @@ class PermissionSet {
   }
 
   /**
-   * Finds and returns an authorization (stored in the 'find by group' index)
+   * Finds and returns an permission (stored in the 'find by group' index)
    * for the "Everyone" group (acl:agentClass foaf:Agent), for a given resource.
-   * @method findAuthByAgent
+   * @method findPublicPerm
    * @private
    * @param resourceUrl {String}
-   * @return {Authorization}
+   * @return {Permission}
    */
-  findPublicAuth (resourceUrl) {
-    return this.findAuthByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
+  findPublicPerm (resourceUrl) {
+    return this.findPermByAgent(acl.EVERYONE, resourceUrl, GROUP_INDEX)
   }
 
   /**
-   * Iterates over all the authorizations in this permission set.
+   * Iterates over all the permissions in this permission set.
    * Convenience method.
    * Usage:
    *
    *   ```
    *   solid.getPermissions(resourceUrl)
    *     .then(function (permissionSet) {
-   *       permissionSet.forEach(function (auth) {
-   *         // do stuff with auth
+   *       permissionSet.forEach(function (perm) {
+   *         // do stuff with perm
    *       })
    *     })
    *   ```
    * @method forEach
-   * @param callback {Function} Function to apply to each authorization
+   * @param callback {Function} Function to apply to each permission
    */
   forEach (callback) {
-    this.allAuthorizations().forEach(auth => {
-      callback.call(this, auth)
+    this.allPermissions().forEach(perm => {
+      callback.call(this, perm)
     })
   }
 
@@ -651,13 +651,13 @@ class PermissionSet {
   }
 
   /**
-   * Returns a list of URIs of group authorizations in this permission set
+   * Returns a list of URIs of group permissions in this permission set
    * (those added via addGroupPermission(), etc).
    * @param [excludePublic=true] {Boolean} Should agentClass Agent be excluded?
    * @return {Array<string>}
    */
   groupUris (excludePublic = true) {
-    let groupIndex = this.authsBy.groups
+    let groupIndex = this.permsBy.groups
     let uris = Object.keys(groupIndex)
     if (excludePublic) {
       uris = uris.filter((uri) => { return uri !== acl.EVERYONE })
@@ -666,7 +666,7 @@ class PermissionSet {
   }
 
   /**
-   * Tests whether this permission set has any `acl:agentGroup` authorizations
+   * Tests whether this permission set has any `acl:agentGroup` permissions
    * @return {Boolean}
    */
   hasGroups () {
@@ -674,7 +674,7 @@ class PermissionSet {
   }
 
   /**
-   * Creates and loads all the authorizations from a given RDF graph.
+   * Creates and loads all the permissions from a given RDF graph.
    * Used by `getPermissions()` and by the constructor (optionally).
    * Usage:
    *
@@ -722,18 +722,18 @@ class PermissionSet {
       groupMatches = groupMatches.map(ea => {
         return new GroupListing({ listing: ea })
       })
-      // Create an Authorization object for each group (accessTo and default)
+      // Create an Permission object for each group (accessTo and default)
       let allAgents = agentMatches
         .concat(publicMatches)
         .concat(groupMatches)
-      // Create an Authorization object for each agent or group
+      // Create an Permission object for each agent or group
       //   (both individual (acl:accessTo) and inherited (acl:default))
       allAgents.forEach(agentMatch => {
         // Extract the acl:accessTo statements.
         let accessToMatches = graph.match(fragment, ns.acl('accessTo'))
         accessToMatches.forEach(resourceMatch => {
           let resourceUrl = resourceMatch.object.value
-          this.addAuthorizationFor(resourceUrl, acl.NOT_INHERIT,
+          this.addPermissionFor(resourceUrl, acl.NOT_INHERIT,
             agentMatch, accessModes, origins, mailTos)
         })
         // Extract inherited / acl:default statements
@@ -741,7 +741,7 @@ class PermissionSet {
           .concat(graph.match(fragment, ns.acl('defaultForNew')))
         inheritedMatches.forEach(containerMatch => {
           let containerUrl = containerMatch.object.value
-          this.addAuthorizationFor(containerUrl, acl.INHERIT,
+          this.addPermissionFor(containerUrl, acl.INHERIT,
             agentMatch, accessModes, origins, mailTos)
         })
       })
@@ -749,17 +749,17 @@ class PermissionSet {
   }
 
   /**
-   * Returns whether or not authorizations added to this permission set be
+   * Returns whether or not permissions added to this permission set be
    * inherited, by default? (That is, should they have acl:default set on them).
-   * @method isAuthInherited
+   * @method isPermInherited
    * @return {Boolean}
    */
-  isAuthInherited () {
+  isPermInherited () {
     return this.resourceType === CONTAINER
   }
 
   /**
-   * Returns whether or not this permission set has any Authorizations added to it
+   * Returns whether or not this permission set has any Permissions added to it
    * @method isEmpty
    * @return {Boolean}
    */
@@ -800,42 +800,42 @@ class PermissionSet {
   }
 
   /**
-   * Returns the corresponding Authorization for a given agent/group webId (and
+   * Returns the corresponding Permission for a given agent/group webId (and
    * for a given resourceUrl, although it assumes by default that it's the same
    * resourceUrl as the PermissionSet).
    * @method permissionFor
    * @param webId {String} URL of the agent or group
    * @param [resourceUrl] {String}
-   * @return {Authorization} Returns the corresponding Authorization, or `null`
-   *   if no webId is given, or if no such authorization exists.
+   * @return {Permission} Returns the corresponding Permission, or `null`
+   *   if no webId is given, or if no such permission exists.
    */
   permissionFor (webId, resourceUrl) {
     if (!webId) {
       return null
     }
     resourceUrl = resourceUrl || this.resourceUrl
-    var hashFragment = Authorization.hashFragmentFor(webId, resourceUrl)
-    return this.authorizations[hashFragment]
+    var hashFragment = Permission.hashFragmentFor(webId, resourceUrl)
+    return this.permissions[hashFragment]
   }
 
   /**
-   * Deletes a given Authorization instance from the permission set.
+   * Deletes a given Permission instance from the permission set.
    * Low-level function, clients should use `removePermission()` instead, in most
    * cases.
-   * @method removeAuthorization
-   * @param auth {Authorization}
+   * @method removeSinglePermission
+   * @param perm {Permission}
    * @return {PermissionSet} Returns self (chainable)
    */
-  removeAuthorization (auth) {
-    var hashFragment = auth.hashFragment()
-    delete this.authorizations[hashFragment]
+  removeSinglePermission (perm) {
+    var hashFragment = perm.hashFragment()
+    delete this.permissions[hashFragment]
     return this
   }
 
   /**
-   * Removes one or more access modes from an authorization in this permission set
+   * Removes one or more access modes from an permission in this permission set
    * (defined by a unique combination of agent/group id (webId) and a resourceUrl).
-   * If no more access modes remain for that authorization, it's deleted from the
+   * If no more access modes remain for that permission, it's deleted from the
    * permission set.
    * @method removePermission
    * @param webId
@@ -843,17 +843,17 @@ class PermissionSet {
    * @return {PermissionSet} Returns self (via a chainable function)
    */
   removePermission (webId, accessMode) {
-    var auth = this.permissionFor(webId, this.resourceUrl)
-    if (!auth) {
-      // No authorization for this webId + resourceUrl exists. Bail.
+    var perm = this.permissionFor(webId, this.resourceUrl)
+    if (!perm) {
+      // No permission for this webId + resourceUrl exists. Bail.
       return this
     }
-    // Authorization exists, remove the accessMode from it
-    auth.removeMode(accessMode)
-    if (auth.isEmpty()) {
+    // Permission exists, remove the accessMode from it
+    perm.removeMode(accessMode)
+    if (perm.isEmpty()) {
       // If no more access modes remain, after removing, delete it from this
       // permission set
-      this.removeAuthorization(auth)
+      this.removeSinglePermission(perm)
     }
     return this
   }
@@ -884,7 +884,7 @@ class PermissionSet {
   }
 
   /**
-   * Serializes this permission set (and all its Authorizations) to a string RDF
+   * Serializes this permission set (and all its Permissions) to a string RDF
    * representation (Turtle by default).
    * Note: invalid authorizations (ones that don't have at least one agent/group,
    * at least one resourceUrl and at least one access mode) do not get serialized,
