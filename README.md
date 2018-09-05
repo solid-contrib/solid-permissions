@@ -7,6 +7,9 @@
 Javascript library for managing [Web Access 
 Control](https://github.com/solid/web-access-control-spec) ACLs / permissions.
 
+*This package has been deprecated by the introduction of [`acl-check.js`](https://github.com/solid/acl-check)*
+
+
 ## Usage
 
 ```js
