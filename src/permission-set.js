@@ -50,6 +50,8 @@ class PermissionSet {
    * @param [options.host] {String} Actual request uri
    * @param [options.origin] {String} Origin URI to enforce, relevant
    *   if strictOrigin is set to true
+   * @param [options.originsAllowed] {String|Statement|Array<String>|Array<Statement>} An array of allowed origins, relevant
+   *   if strictOrigin is set to true
    * @param [options.webClient] {SolidWebClient} Used for save() and clear()
    * @param [options.isAcl] {Function}
    * @param [options.aclUrlFor] {Function}
@@ -142,6 +144,13 @@ class PermissionSet {
      */
     this.origin = options.origin
     /**
+     * An array of origins that are always allowed
+     * (used only if `strictOrigin` parameter is set to true)
+     * @property originsAllowed
+     * @type {String|Statement|Array<String>|Array<Statement>}
+     */
+    this.originsAllowed = options.originsAllowed
+    /**
      * Solid REST client (optionally injected), used by save() and clear().
      * @type {SolidWebClient}
      */
@@ -213,6 +222,7 @@ class PermissionSet {
     }
     perm.addMode(accessModes)
     perm.addOrigin(origins)
+    perm.addOrigin(this.originsAllowed)
     mailTos.forEach(mailTo => {
       perm.addMailTo(mailTo)
     })
@@ -251,6 +261,7 @@ class PermissionSet {
     var perm = new Permission(this.resourceUrl, this.isPermInherited())
     perm.setGroup(webId)
     perm.addMode(accessMode)
+    perm.addOrigin(this.originsAllowed)
     this.addSinglePermission(perm)
     return this
   }
@@ -276,9 +287,8 @@ class PermissionSet {
     var perm = new Permission(this.resourceUrl, this.isPermInherited())
     perm.setAgent(webId)
     perm.addMode(accessMode)
-    if (origin) {
-      perm.addOrigin(origin)
-    }
+    perm.addOrigin(origin)
+    perm.addOrigin(this.originsAllowed)
     this.addSinglePermission(perm)
     return this
   }
@@ -468,8 +478,7 @@ class PermissionSet {
    */
   checkOrigin (permission) {
     if (!this.strictOrigin || // Enforcement turned off in server config
-        !this.origin || // No origin - not a script, do not enforce origin
-        this.origin === this.host) { // same origin is trusted
+        !this.origin) { // No origin - not a script, do not enforce origin
       return true
     }
     // If not same origin, check that the origin is in the explicit ACL list
